@@ -141,6 +141,9 @@ foco ao campo.
   corrigir a URL. Cada requisição tem limite de 20 s, contando a leitura da resposta.
 - Sem `console.*`, sem analytics, sem dependências de terceiros e um único ponto de rede
   (`src/glpi.js`), sempre para a URL do GLPI configurada.
+- **Essas garantias são verificadas, não só prometidas:** `test/invariants.test.js` (roda no `npm test` e no CI) falha
+  se aparecer `console.*`, `innerHTML`/`eval`, rede fora de `src/glpi.js`, `storage.sync`, URL `http://`, script inline ou
+  recurso remoto no HTML/CSS, ou uma permissão nova no `manifest.json`.
 
 ## Quando as tags podem ser perdidas
 
@@ -210,13 +213,15 @@ scripts/make-icons.py  gera os ícones e o banner a partir de assets/logo.png (P
 scripts/sync-windows.sh  copia extension/ para o disco do Windows
 scripts/coverage-summary.mjs  resume o lcov em markdown (comentário do PR e resumo do job)
 .github/workflows/tests.yml   CI: testes unitários com coverage em todo PR
+.github/workflows/seguranca.yml   CI: varredura de segredos (gitleaks) no histórico inteiro
+.gitleaks.toml     regras da varredura de segredos (padrão do gitleaks + token do GLPI)
 assets/logo.png    logo original (1254x1254)
 ```
 
 ## Desenvolvimento
 
 ```bash
-npm test          # 175 testes, sem dependências (Node >= 20)
+npm test          # 186 testes, sem dependências (Node >= 20)
 npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
 npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir de assets/logo.png
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
@@ -242,6 +247,14 @@ e a cada push no branch do PR. São dois jobs, e qualquer falha de teste reprova
   arquivos pelo nome. Ela é exercitada pelo e2e, que precisa de Chromium e não roda no CI.
 - As actions estão fixadas pelo SHA do commit (a versão vai em comentário). O Dependabot
   (`.github/dependabot.yml`) abre uma PR por semana com as atualizações, trocando o SHA e o comentário juntos.
+
+**Varredura de segredos** (`.github/workflows/seguranca.yml`, job **Segredos (gitleaks)**): em todo PR e em todo push na
+`main`, o gitleaks procura tokens no **histórico inteiro** do git, e não só no que o PR muda, porque um token apagado num
+commit seguinte continua no histórico. Além das regras padrão (chaves de nuvem, tokens do GitHub, chaves privadas), há uma
+regra do GLPI em `.gitleaks.toml`: App-Token e user_token são 40 caracteres sem prefixo e nenhuma regra padrão os
+reconhece. O valor achado nunca aparece no log (`--redact`). O GitHub Advanced Security não está habilitado neste
+repositório, então não há secret scanning nem CodeQL nativos. O binário é baixado numa versão fixa e conferido contra um
+SHA-256 fixado no workflow; o Dependabot não acompanha essa versão, então atualize versão e SHA-256 juntos.
 
 ## Teste visual ponta a ponta
 

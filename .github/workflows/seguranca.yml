@@ -1,0 +1,44 @@
+name: Segurança
+
+# Procura segredos (tokens do GLPI, chaves de nuvem, tokens do GitHub...) no histórico inteiro do git, não só no que o
+# PR muda: um token apagado num commit seguinte continua no histórico. O GitHub Advanced Security não está habilitado
+# neste repositório (sem secret scanning nem CodeQL nativos), então a varredura roda aqui, com as regras de .gitleaks.toml.
+# Roda também em push na main, para pegar o que entrar sem passar por PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seguranca-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # na main, nenhuma varredura é cancelada
+
+jobs:
+  segredos:
+    name: Segredos (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # O Dependabot não acompanha estes dois: para atualizar, troque a versão e o SHA-256 juntos
+      # (o SHA-256 está em gitleaks_<versão>_checksums.txt, na página da release).
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # o histórico inteiro, não só o último commit
+          persist-credentials: false
+
+      # O binário é verificado contra um SHA-256 fixado aqui: um asset trocado na release depois não passa.
+      - name: Instalar o gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+
+      # --redact: o valor do segredo nunca aparece no log do job. Sai com código 1 se achar algo.
+      - name: Varrer o histórico
+        run: '"$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --verbose --no-banner .'
