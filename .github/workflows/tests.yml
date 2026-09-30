@@ -1,7 +1,7 @@
 name: Testes
 
 # Testes unitários em todo PR: ao abrir, ao reabrir e a cada push no branch do PR.
-# Node 24: testes + coverage + comentário no PR. Node 20 (mínimo declarado): só os testes.
+# Node 24: testes + coverage + comentário no PR, e o lint. Node 20 (mínimo declarado): só os testes.
 # O e2e (npm run e2e) precisa de Chromium e não roda aqui.
 on:
   pull_request:
@@ -70,6 +70,27 @@ jobs:
             const mine = comments.find((c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker));
             if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+  # O ESLint vive isolado em tools/lint/ (a raiz do projeto não tem dependências). Instalação reproduzível pelo
+  # lockfile (`npm ci`) e sem scripts de instalação de terceiros (`--ignore-scripts`).
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24 # o ESLint 10 pede Node >= 20.19
+
+      - name: Instalar o ESLint
+        run: npm run lint:install
+
+      - name: Lint
+        run: npm run lint
 
   # O README promete Node 20+ para `npm test`: testar o mínimo é o que torna isso verdade, não só uma afirmação.
   # As versões do meio não entram: se passa na mínima e na atual (job acima), não há o que elas acrescentem.

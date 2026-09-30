@@ -97,6 +97,15 @@ test('manifest: só as permissões que o produto usa, host só opcional e https,
   }
 });
 
+test('sem dependências: a raiz e a extensão não têm nenhuma (o ESLint fica isolado em tools/lint/)', () => {
+  const root = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  for (const key of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+    assert.equal(root[key], undefined, `package.json da raiz tem ${key}: o lint é o único que pode ter, em tools/lint/`);
+  }
+  const shipped = readdirSync(EXT, { recursive: true }).map((p) => String(p).replaceAll('\\', '/'));
+  assert.deepEqual(shipped.filter((p) => /(^|\/)(node_modules|package\.json|package-lock\.json)(\/|$)/.test(p)), [], 'o que vai para o Chrome não leva dependências');
+});
+
 test('o .gitignore barra o que guarda credencial', () => {
   const ignored = readFileSync(join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/).map((l) => l.trim());
   for (const entry of ['.env', '*.pem', 'node_modules/']) assert.ok(ignored.includes(entry), `.gitignore sem ${entry}`);
