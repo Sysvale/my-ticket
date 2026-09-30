@@ -208,13 +208,16 @@ extension/
 test/                node --test (API do GLPI simulada)
 scripts/make-icons.py  gera os ícones e o banner a partir de assets/logo.png (Pillow)
 scripts/sync-windows.sh  copia extension/ para o disco do Windows
+scripts/coverage-summary.mjs  resume o lcov em markdown (comentário do PR e resumo do job)
+.github/workflows/tests.yml   CI: testes unitários com coverage em todo PR
 assets/logo.png    logo original (1254x1254)
 ```
 
 ## Desenvolvimento
 
 ```bash
-npm test          # 169 testes, sem dependências (Node >= 20)
+npm test          # 175 testes, sem dependências (Node >= 20)
+npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
 npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir de assets/logo.png
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
 npm run sync:win  # copia extension/ para o disco do Windows (WSL → Chrome do Windows)
@@ -223,6 +226,19 @@ npm run e2e       # teste visual ponta a ponta (Chromium + GLPI simulado) → do
 
 Depois de editar, rode `npm run sync:win` (se o Chrome for o do Windows) e clique em recarregar
 o card da extensão em `chrome://extensions`.
+
+## Integração contínua
+
+Todo pull request roda os testes unitários com coverage no GitHub Actions (`.github/workflows/tests.yml`, Node 24):
+ao abrir, ao reabrir e a cada push no branch do PR. O job reprova o PR se algum teste falhar, publica o coverage
+em **um comentário** do PR (atualizado a cada execução) e no resumo do job, e guarda o `lcov.info` como artefato por
+14 dias. Não há limite mínimo de coverage: ele só informa.
+
+- O coverage nativo do Node só conta os arquivos que algum teste carrega. A camada de interface (`popup.js`,
+  `options*.js`, `guide.js`, `offscreen.js`, `src/toast.js`) não aparece no percentual; o comentário lista esses
+  arquivos pelo nome. Ela é exercitada pelo e2e, que precisa de Chromium e não roda no CI.
+- As actions estão fixadas pelo SHA do commit (a versão vai em comentário). Para atualizar, troque o SHA e o
+  comentário juntos.
 
 ## Teste visual ponta a ponta
 
