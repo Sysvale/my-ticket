@@ -1,6 +1,7 @@
 name: Testes
 
-# Testes unitários com coverage em todo PR: ao abrir, ao reabrir e a cada push no branch do PR.
+# Testes unitários em todo PR: ao abrir, ao reabrir e a cada push no branch do PR.
+# Node 24: testes + coverage + comentário no PR. Node 20 (mínimo declarado): só os testes.
 # O e2e (npm run e2e) precisa de Chromium e não roda aqui.
 on:
   pull_request:
@@ -69,3 +70,22 @@ jobs:
             const mine = comments.find((c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker));
             if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+  # O README promete Node 20+ para `npm test`: testar o mínimo é o que torna isso verdade, não só uma afirmação.
+  # As versões do meio não entram: se passa na mínima e na atual (job acima), não há o que elas acrescentem.
+  # Sem coverage (as flags dele pedem Node >= 22.5): coverage e comentário ficam no job acima, no Node 24.
+  node-minimo:
+    name: Node 20 (versão mínima)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+
+      - name: Testes
+        run: npm test

@@ -229,16 +229,19 @@ o card da extensão em `chrome://extensions`.
 
 ## Integração contínua
 
-Todo pull request roda os testes unitários com coverage no GitHub Actions (`.github/workflows/tests.yml`, Node 24):
-ao abrir, ao reabrir e a cada push no branch do PR. O job reprova o PR se algum teste falhar, publica o coverage
-em **um comentário** do PR (atualizado a cada execução) e no resumo do job, e guarda o `lcov.info` como artefato por
-14 dias. Não há limite mínimo de coverage: ele só informa.
+Todo pull request roda os testes unitários no GitHub Actions (`.github/workflows/tests.yml`): ao abrir, ao reabrir
+e a cada push no branch do PR. São dois jobs, e qualquer falha de teste reprova o PR:
+
+- **Unitários + coverage (Node 24):** publica o coverage em **um comentário** do PR (atualizado a cada execução) e no
+  resumo do job, e guarda o `lcov.info` como artefato por 14 dias. Não há limite mínimo de coverage: ele só informa.
+- **Node 20 (versão mínima):** só `npm test`. É o que garante o "Node >= 20" declarado acima; as versões do meio não
+  entram, porque passando na mínima e na atual não há o que elas acrescentem.
 
 - O coverage nativo do Node só conta os arquivos que algum teste carrega. A camada de interface (`popup.js`,
   `options*.js`, `guide.js`, `offscreen.js`, `src/toast.js`) não aparece no percentual; o comentário lista esses
   arquivos pelo nome. Ela é exercitada pelo e2e, que precisa de Chromium e não roda no CI.
-- As actions estão fixadas pelo SHA do commit (a versão vai em comentário). Para atualizar, troque o SHA e o
-  comentário juntos.
+- As actions estão fixadas pelo SHA do commit (a versão vai em comentário). O Dependabot
+  (`.github/dependabot.yml`) abre uma PR por semana com as atualizações, trocando o SHA e o comentário juntos.
 
 ## Teste visual ponta a ponta
 

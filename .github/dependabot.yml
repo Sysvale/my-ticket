@@ -1,0 +1,13 @@
+# As actions do workflow estão fixadas pelo SHA do commit (a versão vai em comentário). O Dependabot troca o SHA e
+# o comentário juntos, então elas não ficam defasadas sem ninguém perceber. Uma PR só por semana, com todas as actions.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
