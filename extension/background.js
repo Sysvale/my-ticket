@@ -50,9 +50,9 @@ async function ensureAlarm(force = false) {
 
 async function updateBadge() {
   const [cfg, state, user] = await Promise.all([getConfig(), getState(), getUser()]);
-  let text = '';
+  let text;
   let color = '#dc2626';
-  let title = 'MyTicket';
+  let title;
   if (!isConfigured(cfg)) {
     text = '!';
     color = '#b45309';

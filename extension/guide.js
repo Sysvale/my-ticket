@@ -1,6 +1,6 @@
 import { getConfig, getState, getUser } from './src/store.js';
 import { sampleNotifications } from './src/samples.js';
-import { buildChecks, demoResultText, NOTIFY_LABEL } from './src/diagnostics.js';
+import { buildChecks, demoResultText } from './src/diagnostics.js';
 import { isSecureUrl, timeAgo } from './src/format.js';
 
 const $ = (sel) => document.querySelector(sel);

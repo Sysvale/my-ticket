@@ -84,7 +84,7 @@ export function createClient({
     } finally {
       clearTimeout(timer);
     }
-    let data = null;
+    let data;
     try {
       data = text ? JSON.parse(text) : null;
     } catch {
