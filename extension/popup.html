@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyTicket</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body class="popup">
+  <header>
+    <h1><img src="icons/icon48.png" alt="" width="24" height="24"> MyTicket</h1>
+    <div class="tools">
+      <button id="refresh" class="icon" title="Atualizar agora" aria-label="Atualizar agora">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+      </button>
+      <button id="pause" class="icon" title="Pausar sincronização" aria-label="Pausar sincronização">
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>
+      </button>
+      <button id="read-all" class="icon" title="Marcar tudo como lido" aria-label="Marcar tudo como lido">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
+      </button>
+      <button id="settings" class="icon" title="Opções" aria-label="Opções">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Aviso de sincronização pausada (aparece nas duas telas) -->
+  <div id="paused" class="paused" role="status" hidden>
+    <span id="paused-text"></span>
+    <button id="resume" type="button" class="btn link">Retomar</button>
+  </div>
+
+  <!-- Tela 1: lista de tickets (busca, filtros e cards) -->
+  <div id="list-view">
+    <form id="add" class="add" autocomplete="off">
+      <input id="add-input" type="text" placeholder="Acompanhar ticket: número ou link" aria-label="Número ou link do ticket">
+      <button class="btn primary" type="submit">Acompanhar</button>
+    </form>
+    <div id="hint" class="hint" hidden></div>
+
+    <section id="filters" class="filters" aria-label="Filtros" hidden>
+      <div class="filters-row">
+        <input id="q" type="search" placeholder="Número ou título" aria-label="Filtrar tickets" autocomplete="off">
+        <button id="f-unread" type="button" class="tog" aria-pressed="false">Novidades</button>
+        <button id="filters-toggle" type="button" class="tog" aria-expanded="false" aria-controls="filters-panel">
+          Filtros <span id="filters-count" class="count" hidden>0</span>
+        </button>
+      </div>
+      <div id="filters-panel" class="filters-panel" hidden>
+        <label><span class="sr">Status</span>
+          <select id="f-status"></select>
+        </label>
+        <label><span class="sr">Papel</span>
+          <select id="f-role"></select>
+        </label>
+        <label><span class="sr">Entidade</span>
+          <select id="f-entity"></select>
+        </label>
+        <label><span class="sr">Status extra</span>
+          <select id="f-extra"></select>
+        </label>
+        <label><span class="sr">Prioridade</span>
+          <select id="f-priority"></select>
+        </label>
+        <label><span class="sr">Tag</span>
+          <select id="f-tag"></select>
+        </label>
+      </div>
+      <div id="filter-summary" class="summary" hidden>
+        <span id="summary-text"></span>
+        <button id="f-clear" type="button" class="btn link">Limpar filtros</button>
+      </div>
+    </section>
+
+    <main id="list"></main>
+  </div>
+
+  <!-- Tela 2: detalhes de um ticket, com o botão que abre o ticket no GLPI -->
+  <section id="detail" class="detail" aria-label="Detalhes do ticket" hidden></section>
+
+  <footer id="status"></footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyTicket — Opções</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body class="options">
+  <h1 class="sr">MyTicket</h1>
+  <div class="brand"><img src="logo.png" alt="MyTicket — Seus tickets do GLPI, sempre com você." width="200"></div>
+  <p class="lead">Notificações e painel dos seus tickets do GLPI. Somente leitura.</p>
+
+  <nav class="tabs" role="tablist" aria-label="Seções das opções">
+    <button type="button" role="tab" id="tabbtn-conexao" aria-controls="tab-conexao" aria-selected="true">Conexão</button>
+    <button type="button" role="tab" id="tabbtn-avisos" aria-controls="tab-avisos" aria-selected="false" tabindex="-1">Avisos</button>
+    <button type="button" role="tab" id="tabbtn-tags" aria-controls="tab-tags" aria-selected="false" tabindex="-1">Tags</button>
+    <button type="button" role="tab" id="tabbtn-dados" aria-controls="tab-dados" aria-selected="false" tabindex="-1">Dados locais</button>
+  </nav>
+
+  <form id="form" autocomplete="off">
+    <div id="tab-conexao" role="tabpanel" aria-labelledby="tabbtn-conexao">
+    <section>
+      <h2>Conexão com o GLPI</h2>
+      <label class="field"><span>URL do GLPI</span>
+        <input id="baseUrl" type="text" placeholder="https://glpi.suaempresa.com" spellcheck="false">
+      </label>
+      <label class="field"><span>App-Token</span>
+        <input id="appToken" type="password" spellcheck="false">
+      </label>
+      <label class="field"><span>Token de API pessoal (user_token)</span>
+        <input id="userToken" type="password" spellcheck="false">
+        <span class="note">Em GLPI → Preferências → “Chave de acesso remoto”. Não é a sua senha.</span>
+      </label>
+      <div class="row">
+        <button type="button" id="import" class="btn">Importar de um arquivo .env</button>
+        <input id="envFile" type="file" hidden>
+        <span class="note">Lê só GLPI_TOKEN, GLPI_APP_TOKEN e GLPI_BASE_URL. O arquivo não é guardado.</span>
+      </div>
+      <p class="note">Os tokens ficam neste navegador (armazenamento local da extensão), sem sincronização,
+        e só são enviados para o endereço acima.</p>
+    </section>
+
+    <section>
+      <h2>O que acompanhar</h2>
+      <label class="check"><input type="checkbox" id="role-assigned"> Tickets em que sou <strong>atribuído</strong></label>
+      <label class="check"><input type="checkbox" id="role-observer"> Tickets em que sou <strong>observador</strong></label>
+      <label class="check"><input type="checkbox" id="role-requester"> Tickets que <strong>eu abri</strong> (requerente)</label>
+      <p class="note">Você também pode acompanhar qualquer ticket pelo número, no popup. Só tickets em aberto entram por papel.</p>
+    </section>
+
+    <section>
+      <h2>Avançado</h2>
+      <label class="field"><span>Verificar a cada</span>
+        <select id="pollMinutes">
+          <option value="1">1 minuto</option>
+          <option value="2">2 minutos</option>
+          <option value="5">5 minutos</option>
+          <option value="10">10 minutos</option>
+        </select>
+      </label>
+      <label class="field"><span>Search option do Status extra</span>
+        <input id="extraField" type="number" min="0" step="1">
+        <span class="note">Campo do plugin Fields; 90001 na instância atual. Deixe em branco para desativar.</span>
+      </label>
+    </section>
+    </div>
+
+    <div id="tab-avisos" role="tabpanel" aria-labelledby="tabbtn-avisos" hidden>
+    <section>
+      <h2>Avisar quando…</h2>
+      <label class="check"><input type="checkbox" id="n-followup"> alguém responder (acompanhamento)</label>
+      <label class="check"><input type="checkbox" id="n-solution"> houver uma solução proposta</label>
+      <label class="check"><input type="checkbox" id="n-status"> o status do ticket mudar</label>
+      <label class="check"><input type="checkbox" id="n-extra"> o Status extra mudar</label>
+      <label class="check"><input type="checkbox" id="n-new"> um ticket novo entrar no meu radar</label>
+      <label class="check"><input type="checkbox" id="notifyOwn"> incluir as minhas próprias respostas</label>
+      <div class="row demo-row">
+        <button type="button" id="demo" class="btn">Ver exemplos de notificação</button>
+        <span id="demo-status" class="note" role="status"></span>
+      </div>
+      <p class="note">Mostra uma notificação de cada tipo, com dados fictícios, do jeito que o sistema vai exibir
+        (respeita a opção “Ocultar conteúdo” marcada nesta página, mesmo sem salvar).
+        <a href="guide.html" target="_blank" rel="noopener">Guia de notificações</a>: como são os avisos e o que
+        precisa estar ligado para aparecerem.</p>
+    </section>
+
+    <section>
+      <h2>Som</h2>
+      <label class="check"><input type="checkbox" id="sound-enabled"> Tocar um som quando chegar uma notificação</label>
+      <div class="sound-grid">
+        <label class="field"><span>Som</span>
+          <select id="sound-name"></select>
+        </label>
+        <label class="field"><span>Volume <output id="sound-volume-out" for="sound-volume">60%</output></span>
+          <input type="range" id="sound-volume" min="0" max="100" step="5" value="60">
+        </label>
+      </div>
+      <div class="row">
+        <button type="button" id="sound-test" class="btn">Ouvir</button>
+        <span id="sound-status" class="note" role="status"></span>
+      </div>
+      <p class="note">Toca uma vez por verificação, mesmo com vários tickets. Com o som ligado, o som padrão do
+        Windows para os avisos da extensão fica desativado, para não tocar dois sons. O volume final ainda depende
+        do volume do Windows e do Chrome no mixer.</p>
+    </section>
+
+    <section>
+      <h2>Chamar a atenção</h2>
+      <label class="check"><input type="checkbox" id="attn-flash"> Piscar o Chrome na barra de tarefas quando chegar novidade</label>
+      <label class="check"><input type="checkbox" id="attn-sticky"> Manter o aviso na tela até eu fechar (não some sozinho)</label>
+      <p class="note">O Windows pode esconder o banner dos avisos (Não Perturbe, banners desligados para o Chrome) e mandá-los
+        direto para a Central de Notificações (Win + N). Estas duas opções chamam a atenção mesmo assim.
+        Veja o <a href="guide.html#banner" target="_blank" rel="noopener">Guia</a> para fazer o banner aparecer.</p>
+    </section>
+
+    <section>
+      <h2>Privacidade</h2>
+      <label class="check"><input type="checkbox" id="hideContent"> <strong>Ocultar o conteúdo</strong> das respostas</label>
+      <p class="note">As notificações mostram só o número do ticket e quem respondeu, sem título, texto nem entidade
+        (bom para tela de bloqueio e compartilhamento de tela). O texto de acompanhamentos e soluções também
+        deixa de ser guardado no navegador. O título dos tickets continua visível no painel do popup.</p>
+    </section>
+    </div>
+
+    <div class="savebar">
+      <div class="row">
+      <button type="button" id="test" class="btn">Testar conexão</button>
+      <button type="submit" class="btn primary">Salvar</button>
+    </div>
+    <div id="result" class="result" role="status" hidden></div>
+    </div>
+  </form>
+
+  <div id="tab-tags" role="tabpanel" aria-labelledby="tabbtn-tags" hidden>
+  <section id="tags" class="tags-manager">
+    <h2>Tags dos tickets</h2>
+    <p class="note">Marque etapas e etiquetas nos seus tickets (no popup, botão “Tags”). <strong>Ficam só neste
+      navegador</strong>: não vão para o GLPI, não sincronizam com a sua conta Google e ninguém mais as vê. Aqui as
+      mudanças valem na hora, sem precisar de “Salvar”.</p>
+    <ul id="tags-list" class="tags-list"></ul>
+    <form id="tag-new" class="tag-new" autocomplete="off">
+      <input id="tag-new-name" type="text" maxlength="24" placeholder="Nova tag" aria-label="Nome da nova tag">
+      <select id="tag-new-kind" aria-label="Tipo da nova tag">
+        <option value="label">Etiqueta</option>
+        <option value="stage">Etapa</option>
+      </select>
+      <span id="tag-new-color" class="colorctl"></span>
+      <button type="submit" class="btn">Adicionar</button>
+    </form>
+    <div class="tags-tools">
+      <button type="button" id="tags-restore" class="btn">Restaurar tags padrão</button>
+      <button type="button" id="tags-export" class="btn">Exportar tags (JSON)</button>
+      <button type="button" id="tags-import" class="btn">Importar tags (JSON)</button>
+      <input id="tags-file" type="file" accept="application/json,.json" hidden>
+    </div>
+    <p class="note"><strong>Etapa</strong>: só uma por ticket (marcar outra troca a anterior) e mostra desde quando.
+      <strong>Etiqueta</strong>: quantas quiser. Guarde um arquivo exportado para recuperar as tags depois de trocar
+      de pasta ou reinstalar a extensão. Importar <strong>substitui</strong> as tags atuais. Veja em “Dados locais”,
+      logo abaixo, tudo o que pode apagar as tags.</p>
+  </section>
+  </div>
+
+  <div id="tab-dados" role="tabpanel" aria-labelledby="tabbtn-dados" hidden>
+  <section class="local-data">
+    <h2>Dados locais</h2>
+    <p class="note">Apaga deste navegador a URL, os tokens, as preferências, a lista de tickets acompanhados,
+      <strong>as tags personalizadas e as marcações nos tickets</strong>, o cache de tickets e as notificações, e
+      retira a permissão de acesso ao site do GLPI. Nada é alterado no GLPI.
+      Apagar aqui <strong>não invalida</strong> o token: para isso, gere outro em Preferências →
+      “Chave de acesso remoto”.</p>
+    <div id="loss-info" class="loss-box" role="note">
+      <strong>Quando as suas tags podem ser perdidas</strong>
+      <p>As tags ficam só no armazenamento deste navegador (<code>chrome.storage.local</code>). Elas <strong>sobrevivem</strong>
+        a fechar e reabrir o Chrome, a reiniciar o computador e a recarregar a extensão. Elas <strong>se perdem</strong> quando:</p>
+      <ul>
+        <li>você clica em <strong>Apagar credenciais e dados locais</strong> (este botão);</li>
+        <li>você <strong>remove a extensão</strong> do Chrome, mesmo que a adicione de novo depois;</li>
+        <li>você carrega a extensão de <strong>outra pasta</strong>: o Chrome a trata como uma extensão nova, com o
+          armazenamento vazio, e os dados antigos ficam presos à pasta anterior;</li>
+        <li>você apaga ou redefine o <strong>perfil do Chrome</strong>, ou usa outro perfil, navegador ou computador:
+          elas não sincronizam com a conta Google nem com o GLPI;</li>
+        <li>você <strong>troca a conta ou o GLPI</strong> nestas Opções: os números de ticket deixam de valer e as
+          marcações (e os tickets acompanhados) são descartados; as tags que você criou ficam;</li>
+        <li>o ticket sai do seu radar e passa <strong>mais de 60 dias</strong> sem voltar: a marcação dele é limpa
+          sozinha;</li>
+        <li>você usa o <strong>“Limpar dados de navegação”</strong> do Chrome: não foi testado se isso apaga os dados de
+          extensões; na dúvida, exporte antes.</li>
+      </ul>
+      <p>Para se proteger, use <a href="#tags">Exportar tags (JSON)</a> e guarde o arquivo.</p>
+    </div>
+    <button type="button" id="wipe" class="btn danger">Apagar credenciais e dados locais</button>
+    <div id="wipe-result" class="result" role="status" hidden></div>
+  </section>
+  </div>
+
+  <script type="module" src="options.js"></script>
+  <script type="module" src="options-tags.js"></script>
+</body>
+</html>

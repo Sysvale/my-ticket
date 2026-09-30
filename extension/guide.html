@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyTicket — Guia de notificações</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body class="guide">
+  <header class="g-head">
+    <img src="icons/icon48.png" width="40" height="40" alt="" class="g-logo">
+    <div class="g-title">
+      <h1>Guia de notificações</h1>
+      <p class="lead">Como são os avisos do MyTicket, o que precisa estar ligado para eles aparecerem e o que fazer quando não aparecem.</p>
+    </div>
+    <a class="btn" href="options.html">Voltar às Opções</a>
+  </header>
+
+  <nav class="g-nav" aria-label="Seções">
+    <a href="#requisitos">O que precisa</a>
+    <a href="#banner">Só na Win + N?</a>
+    <a href="#exemplos">Como são os avisos</a>
+    <a href="#testar">Testar</a>
+    <a href="#regras">Regras</a>
+    <a href="#problemas">Se não aparecer</a>
+  </nav>
+
+  <section id="requisitos" class="g-card">
+    <h2>O que precisa para os avisos aparecerem</h2>
+    <p class="note">Verificado agora, neste navegador. O que depende do Windows não dá para checar daqui, então aparece como passos para você conferir.</p>
+    <ul id="checks" class="checks"></ul>
+    <div class="row">
+      <button type="button" id="recheck" class="btn">Verificar de novo</button>
+      <span id="recheck-at" class="note" role="status"></span>
+    </div>
+  </section>
+
+  <section id="banner" class="g-card">
+    <h2>Os avisos só aparecem quando abro a Central de Notificações (Win + N)?</h2>
+    <p class="note">Se eles estão na Win + N, o Windows <b>recebeu</b> os avisos da extensão. O que ele não fez foi mostrar o banner subindo no canto da tela. Isso é uma configuração do Windows, e não da extensão. As causas mais comuns:</p>
+    <ol class="rules">
+      <li><b>Não Perturbe / Assistente de foco ligado.</b> Abra a Central (Win + N): se houver um sino com a lua, ou a chave “Não perturbe” ligada, os avisos vão direto para a lista, sem banner. Desligue-a. Em Configurações → Sistema → Foco, confira também as <b>regras automáticas</b> (ao duplicar a tela, ao usar um app em tela cheia, ao jogar). O Chrome em tela cheia (F11) ou compartilhando a tela costuma acionar uma delas.</li>
+      <li><b>Banners desligados para o Chrome.</b> Configurações → Sistema → Notificações → Google Chrome: ligue <b>“Mostrar banners de notificação”</b> (e, se quiser, “Tocar um som”).</li>
+      <li><b>Só notificações prioritárias.</b> Se o Assistente de foco estiver em “Somente prioridade”, inclua o Google Chrome na lista de prioridades.</li>
+      <li><b>Teste rápido:</b> em Opções → Som, desligue o aviso sonoro e clique em “Ver exemplos de notificação”. Se com o som desligado os banners passarem a aparecer, me avise: significa que o modo silencioso do aviso está influenciando o banner no seu Windows.</li>
+    </ol>
+    <p class="note">Para não depender do banner, ligue em Opções → <b>Chamar a atenção</b>: <b>piscar o Chrome na barra de tarefas</b> (o botão do Chrome fica laranja até você clicar nele) e <b>manter o aviso na tela até eu fechar</b>. Fixe também o ícone do MyTicket na barra do Chrome: o número vermelho nele mostra quantos tickets têm novidade.</p>
+  </section>
+
+  <section id="exemplos" class="g-card">
+    <h2>Como são os avisos</h2>
+    <p class="note">Os textos abaixo são os mesmos que a extensão usa de verdade (com dados fictícios). O visual final é desenhado pelo Windows/Chrome e pode ficar um pouco diferente.</p>
+    <div class="anatomy">
+      <div class="desk" id="anatomy"></div>
+      <ul class="legend">
+        <li><span class="pin">1</span><span><b>Título</b> — <code>#número</code> e o título do ticket (até 90 caracteres). Com “Ocultar conteúdo”, só <code>Ticket #número</code>.</span></li>
+        <li><span class="pin">2</span><span><b>Mensagem</b> — o evento principal, até 250 caracteres. Se houve outros eventos no mesmo ticket, aparece “(+N)”.</span></li>
+        <li><span class="pin">3</span><span><b>Contexto</b> — a entidade do ticket (ex.: Município Beta). Com “Ocultar conteúdo”, não aparece.</span></li>
+        <li><span class="pin">4</span><span><b>Botões</b> — <b>Abrir</b> (abre o ticket no GLPI e marca como lido) e <b>Marcar como lido</b> (só limpa o destaque).</span></li>
+      </ul>
+    </div>
+    <label class="check"><input type="checkbox" id="g-hide"> Mostrar como fica com <b>Ocultar conteúdo</b> ligado</label>
+    <div id="gallery" class="gallery"></div>
+  </section>
+
+  <section id="testar" class="g-card">
+    <h2>Testar no seu computador</h2>
+    <p class="note">Envia uma notificação real de cada tipo, com dados fictícios, uma por segundo, e toca o som configurado uma vez. Os avisos de exemplo não abrem nenhum ticket ao serem clicados.</p>
+    <div class="row">
+      <button type="button" id="g-demo" class="btn primary">Enviar exemplos agora</button>
+      <button type="button" id="g-sound" class="btn">Ouvir o som</button>
+    </div>
+    <p id="g-status" class="note" role="status"></p>
+  </section>
+
+  <section id="regras" class="g-card">
+    <h2>Regras do dia a dia</h2>
+    <ul id="rules" class="rules"></ul>
+  </section>
+
+  <section id="problemas" class="g-card">
+    <h2>Se não aparecer</h2>
+    <ol class="rules">
+      <li>Clique em <b>Enviar exemplos agora</b> e leia a mensagem que aparece embaixo do botão: ela diz se o Chrome aceitou ou se a permissão está desativada.</li>
+      <li>Confira os itens acima. Um <b class="bad-text">✕</b> vermelho mostra o que está impedindo, e “Como resolver” traz o caminho.</li>
+      <li>No Windows: Configurações → Sistema → Notificações → Google Chrome ligado, e Assistente de foco / Não Perturbe desligado. Os avisos podem ter ido direto para a Central de Notificações (Win + N).</li>
+      <li>Teste sem o MyTicket: em <code>chrome://extensions</code>, clique em “service worker” no card do MyTicket e, no console, rode:<br>
+        <code>chrome.notifications.create({type:'basic', iconUrl:'icons/icon128.png', title:'Teste', message:'Olá'})</code><br>
+        Se esse também não aparecer, o bloqueio está no Windows ou no Chrome, e não na extensão.</li>
+      <li>Se você alterou o código ou copiou uma versão nova, recarregue o card do MyTicket em <code>chrome://extensions</code>.</li>
+    </ol>
+  </section>
+
+  <script type="module" src="guide.js"></script>
+</body>
+</html>
