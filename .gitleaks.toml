@@ -1,0 +1,16 @@
+title = "MyTicket"
+
+# Regras padrão do gitleaks (chaves de nuvem, tokens do GitHub, chaves privadas...) mais a regra abaixo.
+[extend]
+useDefault = true
+
+# App-Token e user_token do GLPI são 40 caracteres alfanuméricos sem prefixo, então nenhuma regra padrão os
+# reconhece. Esta pega o token quando ele está atribuído a um nome que o diz (`userToken: '...'`,
+# `GLPI_TOKEN=...`). Valores curtos de teste ('a', 'b') e placeholders sem entropia não casam.
+[[rules]]
+id = "glpi-token"
+description = "Token da API do GLPI (App-Token, user_token ou session_token) no código"
+regex = '''(?i)(?:app[_-]?token|user[_-]?token|session[_-]?token|glpi[_-]?(?:app[_-]?)?token)["']?\s*[:=]\s*["']?([A-Za-z0-9]{32,64})\b'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["token"]

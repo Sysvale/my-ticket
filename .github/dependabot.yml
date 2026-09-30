@@ -1,0 +1,24 @@
+# As actions do workflow estão fixadas pelo SHA do commit (a versão vai em comentário). O Dependabot troca o SHA e
+# o comentário juntos, então elas não ficam defasadas sem ninguém perceber. Uma PR só por semana, com todas as actions.
+# O mesmo vale para o ESLint de tools/lint/ (única árvore de dependências do projeto, só de desenvolvimento).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /tools/lint
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    groups:
+      eslint:
+        patterns: ["*"]

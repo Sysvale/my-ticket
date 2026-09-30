@@ -1,0 +1,10 @@
+{
+  "name": "my-ticket-lint",
+  "private": true,
+  "description": "Só o ESLint, isolado aqui para a raiz do projeto continuar sem dependências. Veja o README (Desenvolvimento).",
+  "type": "module",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0"
+  }
+}

@@ -140,7 +140,11 @@ foco ao campo.
   `Session-Token` ao novo destino, até a um `http://`): avisa "o GLPI redirecionou o pedido" e pede para
   corrigir a URL. Cada requisição tem limite de 20 s, contando a leitura da resposta.
 - Sem `console.*`, sem analytics, sem dependências de terceiros e um único ponto de rede
-  (`src/glpi.js`), sempre para a URL do GLPI configurada.
+  (`src/glpi.js`), sempre para a URL do GLPI configurada. A raiz do projeto e a extensão não têm dependência nenhuma:
+  o ESLint, só de desenvolvimento, fica isolado em `tools/lint/` e nunca vai para o Chrome.
+- **Essas garantias são verificadas, não só prometidas:** `test/invariants.test.js` (roda no `npm test` e no CI) falha
+  se aparecer `console.*`, `innerHTML`/`eval`, rede fora de `src/glpi.js`, `storage.sync`, URL `http://`, script inline ou
+  recurso remoto no HTML/CSS, ou uma permissão nova no `manifest.json`.
 
 ## Quando as tags podem ser perdidas
 
@@ -208,13 +212,22 @@ extension/
 test/                node --test (API do GLPI simulada)
 scripts/make-icons.py  gera os ícones e o banner a partir de assets/logo.png (Pillow)
 scripts/sync-windows.sh  copia extension/ para o disco do Windows
+scripts/coverage-summary.mjs  resume o lcov em markdown (comentário do PR e resumo do job)
+.github/workflows/tests.yml   CI: testes unitários com coverage em todo PR
+.github/workflows/seguranca.yml   CI: varredura de segredos (gitleaks) no histórico inteiro
+.gitleaks.toml     regras da varredura de segredos (padrão do gitleaks + token do GLPI)
+eslint.config.mjs  configuração do ESLint (recomendadas + correção e segurança)
+tools/lint/        o ESLint isolado (package.json + lockfile): a única árvore de dependências, só de desenvolvimento
 assets/logo.png    logo original (1254x1254)
 ```
 
 ## Desenvolvimento
 
 ```bash
-npm test          # 169 testes, sem dependências (Node >= 20)
+npm test          # 187 testes, sem dependências (Node >= 20)
+npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
+npm run lint:install    # uma vez: instala o ESLint em tools/lint/ (78 pacotes, sem scripts de instalação)
+npm run lint            # ESLint (precisa do lint:install; Node >= 20.19)
 npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir de assets/logo.png
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
 npm run sync:win  # copia extension/ para o disco do Windows (WSL → Chrome do Windows)
@@ -223,6 +236,35 @@ npm run e2e       # teste visual ponta a ponta (Chromium + GLPI simulado) → do
 
 Depois de editar, rode `npm run sync:win` (se o Chrome for o do Windows) e clique em recarregar
 o card da extensão em `chrome://extensions`.
+
+## Integração contínua
+
+Todo pull request roda os testes unitários no GitHub Actions (`.github/workflows/tests.yml`): ao abrir, ao reabrir
+e a cada push no branch do PR. São três jobs, e qualquer falha reprova o PR:
+
+- **Unitários + coverage (Node 24):** publica o coverage em **um comentário** do PR (atualizado a cada execução) e no
+  resumo do job, e guarda o `lcov.info` como artefato por 14 dias. Não há limite mínimo de coverage: ele só informa.
+- **Lint (ESLint, Node 24):** `npm run lint:install` (pelo lockfile, sem scripts de instalação) e `npm run lint`. Regras
+  recomendadas mais correção e segurança (`eqeqeq`, `no-var`, `prefer-const`, `no-eval`, `no-implied-eval`, `no-new-func`,
+  `no-throw-literal`, e `no-script-url` só na extensão). O ESLint 10 pede Node >= 20.19, por isso o lint não roda no job do
+  Node 20.
+- **Node 20 (versão mínima):** só `npm test`. É o que garante o "Node >= 20" declarado acima; as versões do meio não
+  entram, porque passando na mínima e na atual não há o que elas acrescentem.
+
+- O coverage nativo do Node só conta os arquivos que algum teste carrega. A camada de interface (`popup.js`,
+  `options*.js`, `guide.js`, `offscreen.js`, `src/toast.js`) não aparece no percentual; o comentário lista esses
+  arquivos pelo nome. Ela é exercitada pelo e2e, que precisa de Chromium e não roda no CI.
+- As actions estão fixadas pelo SHA do commit (a versão vai em comentário). O Dependabot
+  (`.github/dependabot.yml`) abre uma PR por semana com as atualizações, trocando o SHA e o comentário juntos, e
+  o mesmo para o ESLint de `tools/lint/`.
+
+**Varredura de segredos** (`.github/workflows/seguranca.yml`, job **Segredos (gitleaks)**): em todo PR e em todo push na
+`main`, o gitleaks procura tokens no **histórico inteiro** do git, e não só no que o PR muda, porque um token apagado num
+commit seguinte continua no histórico. Além das regras padrão (chaves de nuvem, tokens do GitHub, chaves privadas), há uma
+regra do GLPI em `.gitleaks.toml`: App-Token e user_token são 40 caracteres sem prefixo e nenhuma regra padrão os
+reconhece. O valor achado nunca aparece no log (`--redact`). O GitHub Advanced Security não está habilitado neste
+repositório, então não há secret scanning nem CodeQL nativos. O binário é baixado numa versão fixa e conferido contra um
+SHA-256 fixado no workflow; o Dependabot não acompanha essa versão, então atualize versão e SHA-256 juntos.
 
 ## Teste visual ponta a ponta
 

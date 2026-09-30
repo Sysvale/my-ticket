@@ -6,6 +6,9 @@
   "description": "MyTicket — extensão do Chrome que avisa de novidades nos seus tickets do GLPI.",
   "scripts": {
     "test": "node --test",
+    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-coverage-include=\"extension/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info",
+    "lint:install": "npm --prefix tools/lint ci --ignore-scripts --no-audit --no-fund",
+    "lint": "node tools/lint/node_modules/eslint/bin/eslint.js .",
     "icons": "python3 scripts/make-icons.py",
     "sync:win": "bash scripts/sync-windows.sh",
     "e2e": "node scripts/e2e/run.mjs"
