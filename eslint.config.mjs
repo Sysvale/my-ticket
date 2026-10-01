@@ -23,7 +23,7 @@ const NODE = readonly([
 ]);
 
 export default [
-  { ignores: ['coverage/**', 'docs/**'] }, // node_modules já é ignorado por padrão
+  { ignores: ['coverage/**', 'docs/**', 'dist/**'] }, // saídas geradas (dist/firefox é cópia de extension/); node_modules já é ignorado por padrão
   { linterOptions: { reportUnusedDisableDirectives: 'error' } }, // um eslint-disable que não serve mais é erro
   js.configs.recommended,
   {

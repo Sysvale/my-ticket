@@ -61,26 +61,34 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
 
 ### Navegadores
 
-O mesmo `extension/` serve aos três. O Edge é Chromium e instala exatamente como o Chrome (`edge://extensions`).
+**Chrome e Edge** carregam `extension/` como está (o Edge é Chromium: `edge://extensions`, mesmo passo a passo).
 
-**Firefox (versão 140 ou mais nova):** `about:debugging#/runtime/this-firefox` → **Carregar extensão temporária…** →
-escolha o arquivo `manifest.json` dentro de `extension/` (no WSL, o da cópia feita por `npm run sync:win`). Depois
-abra as Opções e salve a conexão: o Firefox pede a permissão de acesso ao site do GLPI; se não pedir, conceda em
-`about:addons` → MyTicket → **Permissões**.
+**Firefox (versão 140 ou mais nova)** carrega uma cópia gerada, porque o manifest dele é diferente: o Firefox não tem service
+worker nem a página *offscreen*, e as chaves próprias dele fazem o Chrome avisar “`background.scripts` requires manifest
+version of 2 or lower”. Por isso o manifest do Firefox é **gerado** a partir do de `extension/` e `extension/` não leva nada dele.
 
-- Uma extensão temporária **some quando o Firefox fecha**. Para ficar instalada é preciso assiná-la (o ID dela é
-  `myticket@sysvale.com`, definido em `browser_specific_settings` no manifest) ou usar o Firefox Developer Edition,
-  Nightly ou ESR com `xpinstall.signatures.required` desligado em `about:config`. O Firefox comum recusa extensão sem assinatura.
-- O manifest declara `service_worker` (Chrome/Edge) e `scripts` (Firefox) para o mesmo `background.js`: o Firefox
-  ignora o service worker e roda o script como página de eventos.
+```bash
+npm run build:firefox                                   # gera dist/firefox
+npm run build:firefox -- --out /mnt/c/Users/<usuário>/MyTicket/extension-firefox   # WSL: direto no disco do Windows
+```
+
+Depois, no Firefox: `about:debugging#/runtime/this-firefox` → **Carregar extensão temporária…** → o `manifest.json` da pasta
+gerada. Abra as Opções e salve a conexão: o Firefox pede a permissão de acesso ao site do GLPI; se não pedir, conceda em
+`about:addons` → MyTicket → **Permissões**. Rode `build:firefox` de novo a cada mudança no código e recarregue o add-on.
+
+- O que o gerador muda (`scripts/firefox-manifest.mjs`): `background.scripts` no lugar de `service_worker`, sem a permissão
+  `offscreen` e sem `minimum_chrome_version`, e com `browser_specific_settings.gecko` (ID `myticket@sysvale.com`, obrigatório
+  no MV3 para assinar). Ele recusa apagar uma pasta que não seja uma saída anterior.
+- Uma extensão temporária **some quando o Firefox fecha**. Para ficar instalada é preciso assiná-la ou usar o Firefox
+  Developer Edition, Nightly ou ESR com `xpinstall.signatures.required` desligado em `about:config`. O Firefox comum recusa
+  extensão sem assinatura.
 - O que muda no Firefox, porque a API de avisos dele só aceita título e texto: o aviso **não tem os botões**
   “Abrir” e “Marcar como lido” (clicar nele abre o ticket e já marca como lido), **não fica fixo na tela**, **não
   silencia** o som padrão do sistema (com o som da extensão ligado podem tocar os dois) e a entidade vem numa segunda
-  linha do texto. O aviso sonoro toca direto no background, sem a página *offscreen*, e o Guia não consegue verificar
-  se as notificações estão permitidas (mostra “Não foi possível verificar”).
-- Verificado com o `web-ext lint` da Mozilla (0 erros; os avisos que sobram são a permissão `offscreen` e APIs que o
-  código só usa quando existem) e por testes que simulam o Firefox (`test/background-firefox.test.js`). O e2e roda só
-  no Chromium.
+  linha do texto. O aviso sonoro toca direto no background, e o Guia não consegue verificar se as notificações estão
+  permitidas (mostra “Não foi possível verificar”).
+- Verificado com o `web-ext lint` da Mozilla (0 erros; os avisos que sobram são APIs que o código só usa quando existem) e
+  por testes que simulam o Firefox (`test/background-firefox.test.js`, `test/firefox-build.test.js`). O e2e roda só no Chromium.
 
 ## Sincronizar com o Chrome do Windows (WSL)
 
@@ -208,7 +216,7 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 
 ```
 extension/
-  manifest.json      MV3; permissões: alarms, notifications, offscreen, storage (+ host opcional); ID do Firefox
+  manifest.json      MV3; permissões: alarms, notifications, offscreen, storage (+ host opcional)
   background.js      service worker (Chrome/Edge) ou página de eventos (Firefox): alarme, polling, notificações, badge
   popup.*            painel de tickets
   options.*          credenciais e preferências
@@ -236,6 +244,8 @@ extension/
 test/                node --test (API do GLPI simulada)
 scripts/make-icons.py  gera os ícones e o banner a partir de assets/logo.png (Pillow)
 scripts/sync-windows.sh  copia extension/ para o disco do Windows
+scripts/build-firefox.mjs  gera a pasta do Firefox (cópia de extension/ com o manifest dele)
+scripts/firefox-manifest.mjs  o manifest do Firefox, a partir do de extension/ (puro, testado)
 scripts/coverage-summary.mjs  resume o lcov em markdown (comentário do PR e resumo do job)
 .github/workflows/tests.yml   CI: testes unitários com coverage em todo PR
 .github/workflows/seguranca.yml   CI: varredura de segredos (gitleaks) no histórico inteiro
@@ -248,13 +258,14 @@ assets/logo.png    logo original (1254x1254)
 ## Desenvolvimento
 
 ```bash
-npm test          # 202 testes, sem dependências (Node >= 20)
+npm test          # 213 testes, sem dependências (Node >= 20)
 npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
 npm run lint:install    # uma vez: instala o ESLint em tools/lint/ (78 pacotes, sem scripts de instalação)
 npm run lint            # ESLint (precisa do lint:install; Node >= 20.19)
 npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir de assets/logo.png
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
 npm run sync:win  # copia extension/ para o disco do Windows (WSL → Chrome do Windows)
+npm run build:firefox   # gera dist/firefox, a pasta que o Firefox carrega (--out <pasta> escolhe outra)
 npm run e2e       # teste visual ponta a ponta (Chromium + GLPI simulado) → docs/e2e/index.html
 ```
 
