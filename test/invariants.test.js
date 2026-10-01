@@ -92,9 +92,23 @@ test('manifest: só as permissões que o produto usa, host só opcional e https,
   assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'notifications', 'offscreen', 'storage']);
   assert.equal(manifest.host_permissions, undefined, 'host_permissions dá acesso sem perguntar: só optional_host_permissions');
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
+  // Chrome/Edge usam service_worker; o Firefox ignora essa chave e usa scripts: as duas, apontando para o mesmo arquivo.
+  assert.equal(manifest.background.service_worker, 'background.js');
+  assert.deepEqual(manifest.background.scripts, ['background.js']);
+  // O Firefox exige o ID do add-on no MV3. "none" é a declaração de que a extensão não coleta nem envia dados a
+  // ninguém além do GLPI que a própria pessoa configurou: mudar isso tem de ser uma decisão, não um acidente.
+  const gecko = manifest.browser_specific_settings?.gecko;
+  assert.match(gecko?.id ?? '', /^\S+@\S+$/, 'sem browser_specific_settings.gecko.id o Firefox não instala');
+  assert.deepEqual(gecko?.data_collection_permissions, { required: ['none'] });
   for (const key of ['content_scripts', 'web_accessible_resources', 'externally_connectable', 'content_security_policy', 'optional_permissions', 'devtools_page', 'sandbox']) {
     assert.equal(manifest[key], undefined, `${key} abre uma superfície nova: confirme que é intencional e ajuste este teste`);
   }
+});
+
+test('todo aviso do sistema passa por showNotification: o Firefox só aceita parte das opções (src/compat.js)', () => {
+  assert.deepEqual(scan(JS, /notifications\.create\s*\(/, { allow: ['background.js'] }), []);
+  const calls = codeLines(read('background.js')).filter(({ line }) => /notifications\.create\s*\(/.test(line));
+  assert.equal(calls.length, 1, `só showNotification pode chamar notifications.create: ${calls.map((c) => c.n).join(', ')}`);
 });
 
 test('sem dependências: a raiz e a extensão não têm nenhuma (o ESLint fica isolado em tools/lint/)', () => {

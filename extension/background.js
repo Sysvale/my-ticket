@@ -4,8 +4,9 @@ import { createClient, GlpiError } from './src/glpi.js';
 import { discover, runPoll, scrubState } from './src/poller.js';
 import { sampleNotifications } from './src/samples.js';
 import { fetchTicketDetails } from './src/details.js';
-import { normalizeSoundConfig } from './src/sounds.js';
+import { normalizeSoundConfig, playFile } from './src/sounds.js';
 import { normalizeAttention } from './src/attention.js';
+import { isFirefox, notificationOptionsFor } from './src/compat.js';
 import { failedLabel, isUnderBase, normalizeBaseUrl, parseTicketId, ticketUrl } from './src/format.js';
 import {
   getConfig,
@@ -130,13 +131,21 @@ const summaryOptions = (count, silent = false) => ({
   silent,
 });
 
+// Todo aviso nasce aqui: o Firefox só aceita parte das opções (veja src/compat.js).
+const showNotification = (id, opts) => chrome.notifications.create(id, notificationOptionsFor(opts, { firefox: isFirefox() }));
+
 // Som: a página offscreen toca (o service worker não tem áudio). Se ela ainda não existe, a URL já
 // leva o pedido; se já existe (fecha sozinha após ~30 s sem áudio), o pedido vai por mensagem.
+// No Firefox não há offscreen, mas o background é uma página com áudio: toca direto.
 let offscreenCreating = null;
 async function playSound(sound, { force = false } = {}) {
   const s = normalizeSoundConfig(sound);
   if ((!s.enabled && !force) || s.volume <= 0) return;
   try {
+    if (!chrome.offscreen?.createDocument) {
+      await playFile(s.name, s.volume, { url: (p) => chrome.runtime.getURL(p) });
+      return;
+    }
     const open = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
     if (open.length) {
       await chrome.runtime.sendMessage({ target: 'offscreen', type: 'play', sound: s.name, volume: s.volume });
@@ -171,10 +180,10 @@ async function notify(items, cfg) {
   const attention = normalizeAttention(cfg.attention);
   await playSound(sound); // uma vez por rodada, mesmo com vários tickets
   if (items.length > 5) {
-    await chrome.notifications.create(`summary:${Date.now()}`, summaryOptions(items.length, sound.enabled));
+    await showNotification(`summary:${Date.now()}`, summaryOptions(items.length, sound.enabled));
   } else {
     for (const n of items) {
-      await chrome.notifications.create(`t:${n.ticketId}:${Date.now()}`, toastOptions(n, sound.enabled, attention.sticky));
+      await showNotification(`t:${n.ticketId}:${Date.now()}`, toastOptions(n, sound.enabled, attention.sticky));
     }
   }
   if (attention.flash) await flashTaskbar();
@@ -185,13 +194,14 @@ async function notify(items, cfg) {
 async function demoNotifications(hideContent, sound, attention) {
   const samples = sampleNotifications({ hideContent });
   // "denied" = a pessoa (ou o sistema) desativou as notificações desta extensão: create() dá certo mas nada aparece
-  const permission = await chrome.notifications.getPermissionLevel().catch(() => 'granted');
+  // (o Firefox não tem getPermissionLevel: sem como saber, segue como permitido)
+  const permission = (await Promise.resolve(chrome.notifications.getPermissionLevel?.()).catch(() => undefined)) ?? 'granted';
   await playSound(sound);
   for (const [i, n] of samples.entries()) {
     const opts = n.summary
       ? summaryOptions(n.count, sound.enabled)
       : { ...toastOptions(n, sound.enabled, attention.sticky), title: `Exemplo · ${n.title}` };
-    await chrome.notifications.create(`demo:${n.key}:${Date.now()}`, opts);
+    await showNotification(`demo:${n.key}:${Date.now()}`, opts);
     if (i < samples.length - 1) await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   if (attention.flash) await flashTaskbar();
@@ -287,7 +297,8 @@ chrome.notifications.onClicked.addListener(async (nid) => {
   chrome.notifications.clear(nid);
 });
 
-chrome.notifications.onButtonClicked.addListener(async (nid, button) => {
+// Os botões do aviso só existem no Chrome/Edge; no Firefox este evento não existe (ou nunca dispara).
+chrome.notifications.onButtonClicked?.addListener(async (nid, button) => {
   if (nid.startsWith('demo:')) return chrome.notifications.clear(nid);
   const id = notificationTicketId(nid);
   if (id) await (button === 0 ? openTicket(id) : markRead(id));

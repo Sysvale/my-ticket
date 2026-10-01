@@ -2,7 +2,7 @@
 
 # MyTicket
 
-Extensão do Chrome (Manifest V3) que acompanha os seus tickets do **GLPI** e avisa por
+Extensão (Manifest V3) para **Chrome, Edge e Firefox** que acompanha os seus tickets do **GLPI** e avisa por
 notificação do sistema quando alguém responde, sem depender de e-mail.
 
 Somente leitura: a extensão nunca cria nem altera nada no GLPI.
@@ -58,6 +58,29 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
    `npm run sync:win` (veja [Sincronizar com o Chrome do Windows](#sincronizar-com-o-chrome-do-windows-wsl)).
 3. Abra as **Opções** da extensão (aba **Conexão**), informe a URL, o App-Token e o user_token
    (ou use **Importar de um arquivo .env**), clique em **Testar conexão** e em **Salvar**.
+
+### Navegadores
+
+O mesmo `extension/` serve aos três. O Edge é Chromium e instala exatamente como o Chrome (`edge://extensions`).
+
+**Firefox (versão 140 ou mais nova):** `about:debugging#/runtime/this-firefox` → **Carregar extensão temporária…** →
+escolha o arquivo `manifest.json` dentro de `extension/` (no WSL, o da cópia feita por `npm run sync:win`). Depois
+abra as Opções e salve a conexão: o Firefox pede a permissão de acesso ao site do GLPI; se não pedir, conceda em
+`about:addons` → MyTicket → **Permissões**.
+
+- Uma extensão temporária **some quando o Firefox fecha**. Para ficar instalada é preciso assiná-la (o ID dela é
+  `myticket@sysvale.com`, definido em `browser_specific_settings` no manifest) ou usar o Firefox Developer Edition,
+  Nightly ou ESR com `xpinstall.signatures.required` desligado em `about:config`. O Firefox comum recusa extensão sem assinatura.
+- O manifest declara `service_worker` (Chrome/Edge) e `scripts` (Firefox) para o mesmo `background.js`: o Firefox
+  ignora o service worker e roda o script como página de eventos.
+- O que muda no Firefox, porque a API de avisos dele só aceita título e texto: o aviso **não tem os botões**
+  “Abrir” e “Marcar como lido” (clicar nele abre o ticket e já marca como lido), **não fica fixo na tela**, **não
+  silencia** o som padrão do sistema (com o som da extensão ligado podem tocar os dois) e a entidade vem numa segunda
+  linha do texto. O aviso sonoro toca direto no background, sem a página *offscreen*, e o Guia não consegue verificar
+  se as notificações estão permitidas (mostra “Não foi possível verificar”).
+- Verificado com o `web-ext lint` da Mozilla (0 erros; os avisos que sobram são a permissão `offscreen` e APIs que o
+  código só usa quando existem) e por testes que simulam o Firefox (`test/background-firefox.test.js`). O e2e roda só
+  no Chromium.
 
 ## Sincronizar com o Chrome do Windows (WSL)
 
@@ -166,7 +189,7 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 
 ## Como funciona
 
-- `chrome.alarms` acorda o service worker a cada N minutos (1, 2, 5 ou 10).
+- `chrome.alarms` acorda o service worker (no Firefox, a página de eventos) a cada N minutos (1, 2, 5 ou 10).
 - Um `search/Ticket` por papel (campos 5, 66 e 4 = seu id, status "não resolvido") mais um por
   lote de tickets manuais. O `date_mod` do search decide quais tickets precisam ser relidos.
 - Só os tickets alterados chamam `Ticket/:id`, `ITILFollowup` e `ITILSolution`. Uma varredura
@@ -185,8 +208,8 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 
 ```
 extension/
-  manifest.json      MV3; permissões: alarms, notifications, offscreen, storage (+ host opcional)
-  background.js      service worker: alarme, polling, notificações, badge
+  manifest.json      MV3; permissões: alarms, notifications, offscreen, storage (+ host opcional); ID do Firefox
+  background.js      service worker (Chrome/Edge) ou página de eventos (Firefox): alarme, polling, notificações, badge
   popup.*            painel de tickets
   options.*          credenciais e preferências
   options-tabs.js    abas das Opções (Conexão, Avisos, Tags, Dados locais; o # do endereço escolhe a aba)
@@ -207,6 +230,7 @@ extension/
   src/tags.js        tags personalizadas (lógica pura: padrões, etapa única, limites, exportar/importar)
   src/color.js       cor das tags: valida #rrggbb e ajusta o contraste por tema (lógica pura)
   src/tabs.js        abas das Opções (lógica pura: qual aba abrir, teclado)
+  src/compat.js      diferenças entre Chrome/Edge e Firefox (detecção e opções de aviso que o Firefox aceita)
   src/dom.js         h(): monta DOM só com textContent (nada vai por innerHTML)
   src/store.js       chrome.storage (config / user / state / ui / session)
 test/                node --test (API do GLPI simulada)
@@ -224,7 +248,7 @@ assets/logo.png    logo original (1254x1254)
 ## Desenvolvimento
 
 ```bash
-npm test          # 187 testes, sem dependências (Node >= 20)
+npm test          # 202 testes, sem dependências (Node >= 20)
 npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
 npm run lint:install    # uma vez: instala o ESLint em tools/lint/ (78 pacotes, sem scripts de instalação)
 npm run lint            # ESLint (precisa do lint:install; Node >= 20.19)
