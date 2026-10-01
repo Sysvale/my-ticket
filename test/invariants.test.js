@@ -92,9 +92,20 @@ test('manifest: só as permissões que o produto usa, host só opcional e https,
   assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'notifications', 'offscreen', 'storage']);
   assert.equal(manifest.host_permissions, undefined, 'host_permissions dá acesso sem perguntar: só optional_host_permissions');
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
+  // O que o Chrome carrega não leva nada do Firefox: 'background.scripts' faz o Chrome avisar "requires manifest version
+  // of 2 or lower". O manifest do Firefox é gerado a partir deste (scripts/firefox-manifest.mjs, testado em firefox-build.test.js).
+  assert.equal(manifest.background.service_worker, 'background.js');
+  assert.equal(manifest.background.scripts, undefined);
+  assert.equal(manifest.browser_specific_settings, undefined);
   for (const key of ['content_scripts', 'web_accessible_resources', 'externally_connectable', 'content_security_policy', 'optional_permissions', 'devtools_page', 'sandbox']) {
     assert.equal(manifest[key], undefined, `${key} abre uma superfície nova: confirme que é intencional e ajuste este teste`);
   }
+});
+
+test('todo aviso do sistema passa por showNotification: o Firefox só aceita parte das opções (src/compat.js)', () => {
+  assert.deepEqual(scan(JS, /notifications\.create\s*\(/, { allow: ['background.js'] }), []);
+  const calls = codeLines(read('background.js')).filter(({ line }) => /notifications\.create\s*\(/.test(line));
+  assert.equal(calls.length, 1, `só showNotification pode chamar notifications.create: ${calls.map((c) => c.n).join(', ')}`);
 });
 
 test('sem dependências: a raiz e a extensão não têm nenhuma (o ESLint fica isolado em tools/lint/)', () => {
@@ -104,6 +115,12 @@ test('sem dependências: a raiz e a extensão não têm nenhuma (o ESLint fica i
   }
   const shipped = readdirSync(EXT, { recursive: true }).map((p) => String(p).replaceAll('\\', '/'));
   assert.deepEqual(shipped.filter((p) => /(^|\/)(node_modules|package\.json|package-lock\.json)(\/|$)/.test(p)), [], 'o que vai para o Chrome não leva dependências');
+});
+
+test('dist/ (saída do build do Firefox) fica fora do git e do lint: é uma cópia de extension/', () => {
+  const ignored = readFileSync(join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/).map((l) => l.trim());
+  assert.ok(ignored.includes('dist/'), '.gitignore sem dist/');
+  assert.match(readFileSync(join(ROOT, 'eslint.config.mjs'), 'utf8'), /ignores:\s*\[[^\]]*'dist\/\*\*'/, 'eslint.config.mjs não ignora dist/');
 });
 
 test('o .gitignore barra o que guarda credencial', () => {

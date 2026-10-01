@@ -1,4 +1,4 @@
-// Avisos sonoros: catálogo e normalização (puro; quem toca é a página offscreen).
+// Avisos sonoros: catálogo e normalização (puro; quem toca é a página offscreen, ou o próprio background no Firefox).
 
 export const SOUNDS = {
   chime: { label: 'Suave (duas notas)', file: 'sounds/chime.wav' },
@@ -16,6 +16,14 @@ export const clampVolume = (v) => {
 };
 
 export const soundFile = (name) => SOUNDS[normalizeSound(name)].file;
+
+// Toca o arquivo do som. `url` resolve o caminho dentro da extensão (chrome.runtime.getURL). O som é opcional:
+// uma falha ao tocar (ex.: o navegador bloqueou o áudio) nunca deve gerar erro.
+export function playFile(name, volume, { url, AudioImpl = globalThis.Audio }) {
+  const audio = new AudioImpl(url(soundFile(name)));
+  audio.volume = clampVolume(volume);
+  return Promise.resolve(audio.play()).catch(() => {});
+}
 
 // Config de som vinda do storage ou de uma mensagem: aceita lixo e devolve valores válidos.
 export function normalizeSoundConfig(s) {

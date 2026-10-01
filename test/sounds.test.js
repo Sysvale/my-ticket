@@ -7,6 +7,7 @@ import {
   clampVolume,
   normalizeSound,
   normalizeSoundConfig,
+  playFile,
   soundFile,
 } from '../extension/src/sounds.js';
 
@@ -54,4 +55,33 @@ test('normalizeSoundConfig completa e sanitiza', () => {
   assert.deepEqual(normalizeSoundConfig({ enabled: 1, name: 'alert', volume: 5 }), { enabled: true, name: 'alert', volume: 1 });
   assert.deepEqual(normalizeSoundConfig(undefined), { enabled: false, name: DEFAULT_SOUND, volume: 0.6 });
   assert.deepEqual(normalizeSoundConfig({ enabled: true, name: 'x', volume: 'lixo' }), { enabled: true, name: DEFAULT_SOUND, volume: 0 });
+});
+
+// Áudio simulado: guarda o endereço e o volume, e deixa escolher o que play() devolve.
+function fakeAudio(play) {
+  const made = [];
+  class FakeAudio {
+    constructor(src) { this.src = src; this.volume = 1; made.push(this); }
+    play() { return play(); }
+  }
+  return { AudioImpl: FakeAudio, made };
+}
+
+test('playFile toca o arquivo do som certo, pelo endereço da extensão, com o volume limitado a 0–1', async () => {
+  const { AudioImpl, made } = fakeAudio(async () => {});
+  await playFile('double', 0.4, { url: (p) => `moz-extension://x/${p}`, AudioImpl });
+  assert.equal(made.length, 1);
+  assert.equal(made[0].src, 'moz-extension://x/sounds/double.wav');
+  assert.equal(made[0].volume, 0.4);
+
+  await playFile('nao-existe', 7, { url: (p) => p, AudioImpl });
+  assert.equal(made[1].src, soundFile(DEFAULT_SOUND)); // nome inválido volta ao som padrão
+  assert.equal(made[1].volume, 1);
+});
+
+test('playFile nunca falha: o navegador bloquear o áudio (promessa rejeitada) é ignorado', async () => {
+  const blocked = fakeAudio(() => Promise.reject(new Error('NotAllowedError')));
+  await assert.doesNotReject(playFile('chime', 0.6, { url: (p) => p, AudioImpl: blocked.AudioImpl }));
+  const sync = fakeAudio(() => undefined); // play() que não devolve promessa
+  await assert.doesNotReject(playFile('chime', 0.6, { url: (p) => p, AudioImpl: sync.AudioImpl }));
 });

@@ -11,6 +11,7 @@
     "lint": "node tools/lint/node_modules/eslint/bin/eslint.js .",
     "icons": "python3 scripts/make-icons.py",
     "sync:win": "bash scripts/sync-windows.sh",
+    "build:firefox": "node scripts/build-firefox.mjs",
     "e2e": "node scripts/e2e/run.mjs"
   }
 }
