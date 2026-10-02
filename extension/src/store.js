@@ -9,6 +9,7 @@ import { emptyState } from './poller.js';
 import { normalizeTags } from './tags.js';
 import { normalizeAppearance } from './appearance.js';
 import { prunePinned } from './pins.js';
+import { normalizeGroupBy, normalizeSections } from './grouping.js';
 
 export const DEFAULT_CONFIG = {
   baseUrl: '', // cada pessoa informa o endereço do seu GLPI nas Opções
@@ -152,10 +153,16 @@ export function pruneUser(user, state, expired = []) {
   return changed;
 }
 
-// Estado da interface do popup (filtros e painel aberto). Só o popup escreve.
+// Estado da interface do popup (filtros, painel aberto, como a lista é agrupada e quais seções a pessoa abriu ou fechou).
+// Só o popup escreve.
 export async function getUi() {
   const { ui } = await chrome.storage.local.get('ui');
-  return { filters: mergeFilters(ui?.filters), panelOpen: Boolean(ui?.panelOpen) };
+  return {
+    filters: mergeFilters(ui?.filters),
+    panelOpen: Boolean(ui?.panelOpen),
+    groupBy: normalizeGroupBy(ui?.groupBy),
+    sections: normalizeSections(ui?.sections),
+  };
 }
 
 export const setUi = (ui) => chrome.storage.local.set({ ui });

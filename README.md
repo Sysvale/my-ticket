@@ -36,6 +36,13 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   fixados à parte (“Mostrando 1 de 3 · 1 fixado à parte”), para ficar claro o que passou no filtro e o que está ali por
   estar fixado. O ticket fixado não se repete em outra seção. Quando um fixado sai do radar (resolvido há dias, ou troca
   de conta), ele é desafixado sozinho. Fica só neste navegador.
+- **Agrupar a lista:** no painel **Filtros**, o seletor **Agrupar** troca as seções da lista: *padrão* (Novidades,
+  Acompanhando e Encerrados), por **status**, por **prioridade** (da crítica para a muito baixa) ou por **etapa** (as tags
+  de etapa, na ordem das Opções, e “Sem etapa”). **Novidades fica sempre no topo**, em qualquer modo, e os tickets com
+  novidade não se repetem nos grupos; dentro de cada grupo vem primeiro o de atualização mais recente. Os **fixados**
+  continuam acima de tudo. Cada seção é uma **sanfona**: clique no título para abrir ou fechar, e a escolha fica guardada
+  (por modo; Novidades vale para todos). Resolvido e fechado começam fechados no modo status. Grupos vazios não aparecem,
+  “Limpar filtros” não desfaz o agrupamento e ele não conta no número do botão Filtros.
 - **Tickets parados:** um ticket **em aberto** sem nenhuma movimentação há muito tempo ganha, no popup, uma **borda
   discreta âmbar** (a partir de **48 h**) e **vermelha** (a partir de **5 dias**), mais o aviso “parado há 2 d 4 h” na linha
   de dados do card (e um chip nos detalhes), então não depende só de cor. Usa a data da última atualização que a extensão
@@ -264,6 +271,7 @@ extension/
   src/filters.js     filtros do popup (lógica pura)
   src/omnibox.js     sugestões e leitura do que se digita na barra de endereços (lógica pura)
   src/pins.js        tickets fixados no topo da lista (lógica pura)
+  src/grouping.js    agrupar a lista (status, prioridade, etapa) em seções retráteis (lógica pura)
   src/stale.js       tickets parados: limites, nível âmbar/vermelho e o texto “parado há …” (lógica pura)
   src/timeshare.js   tempo por atribuído / rosca (lógica pura: log do GLPI → fatias que somam 100%)
   src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)

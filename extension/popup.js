@@ -37,6 +37,7 @@ import {
   sanitizeFilters,
 } from './src/filters.js';
 import { h, tagColor } from './src/dom.js';
+import { GROUP_LABEL, GROUP_MODES, groupTickets, isSectionOpen, normalizeGroupBy, withSectionOpen } from './src/grouping.js';
 import { isPinned, splitPinned, summaryText, togglePin } from './src/pins.js';
 import { closePickers, createPicker } from './src/picker-ui.js';
 import { LIMITS, createTag, defsOf, tagsOfTicket, toggleTag } from './src/tags.js';
@@ -272,11 +273,21 @@ function card(t, user) {
   h('div', { class: 'actions' }, actions));
 }
 
-function section(title, tickets, user, { open = true } = {}) {
-  if (!tickets.length) return null;
-  return h('details', { open },
-    h('summary', {}, `${title} (${tickets.length})`),
-    tickets.map((t) => card(t, user)));
+// Seção retrátil (sanfona). Se ela abre ou fecha é escolha da pessoa e fica guardada em ui.sections (por modo de
+// agrupamento); sem escolha vale o padrão da seção. A lista é recriada a cada atualização, então o estado não pode
+// ficar só no elemento.
+function section(g, user) {
+  return h('details', {
+    open: isSectionOpen(g, ui.sections),
+    ontoggle: (ev) => {
+      // também dispara quando a seção nasce aberta: só grava se mudou em relação ao que está valendo
+      if (ev.target.open === isSectionOpen(g, ui.sections)) return;
+      ui.sections = withSectionOpen(ui.sections, g, ev.target.open);
+      saveUi();
+    },
+  },
+  h('summary', { 'data-focus': `sec:${g.id}` }, `${g.title} (${g.tickets.length})`),
+  g.tickets.map((t) => card(t, user)));
 }
 
 // Os fixados aparecem sempre, com ou sem filtro. Com filtro ligado a seção diz isso e uma linha separa o resto, para não
@@ -331,14 +342,15 @@ function renderList(cfg, state, user, all, visible) {
         { label: 'Limpar filtros', run: clearFilters }));
     }
   } else {
-    const withNews = shown.filter((t) => unreadEvents(t, user.readAt).length);
-    const rest = shown.filter((t) => !withNews.includes(t));
-    const lastAt = (t) => t.events.at(-1)?.at ?? 0;
-    parts.push(
-      section('Novidades', withNews.sort((a, b) => lastAt(b) - lastAt(a)), user),
-      section('Acompanhando', rest.filter((t) => !isDone(t)).sort((a, b) => modMs(b) - modMs(a)), user),
-      section('Encerrados', rest.filter(isDone).sort((a, b) => modMs(b) - modMs(a)), user, { open: false }),
-    );
+    const stages = defsOf(data.tags).filter((d) => d.stage);
+    const ctx = {
+      isUnread: (t) => unreadEvents(t, user.readAt).length > 0,
+      lastEventAt: (t) => t.events.at(-1)?.at ?? 0,
+      modMs,
+      stageOf: (t) => tagsOfTicket(data.tags, t.id).find((x) => x.def.stage)?.def ?? null,
+      stages,
+    };
+    parts.push(...groupTickets(shown, ui.groupBy, ctx).map((g) => section(g, user)));
   }
   list.append(...parts.filter(Boolean));
 }
@@ -667,6 +679,7 @@ function renderControls(cfg, tickets, options, counts, isUnread) {
   setSelect('f-status', STATUS_OPTIONS, f.status);
   setSelect('f-role', ROLE_OPTIONS, f.role);
   setSelect('f-priority', PRIORITY_OPTIONS, f.priority);
+  setSelect('f-group', GROUP_MODES.map((value) => ({ value, label: GROUP_LABEL[value] })), ui.groupBy);
   pickers.entity.update({
     options: [{ value: 'all', label: 'Todas as entidades', all: true }, ...options.entities.map((e) => ({ value: e, label: e }))],
     value: f.entity,
@@ -844,6 +857,12 @@ $('#filters-toggle').addEventListener('click', () => {
 for (const [id, key] of [['f-status', 'status'], ['f-role', 'role'], ['f-priority', 'priority']]) {
   $(`#${id}`).addEventListener('change', (ev) => setFilter({ [key]: ev.target.value }));
 }
+// Agrupar não é filtro: "Limpar filtros" não mexe nele e ele não conta no número do botão "Filtros".
+$('#f-group').addEventListener('change', (ev) => {
+  ui.groupBy = normalizeGroupBy(ev.target.value);
+  saveUi();
+  paint();
+});
 $('#f-clear').addEventListener('click', clearFilters);
 
 // Esc fecha o painel de tags; sem painel aberto, volta da tela de detalhes para a lista

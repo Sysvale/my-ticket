@@ -505,6 +505,93 @@ try {
     await popup.waitFor("document.querySelectorAll('.card[class*=stale]').length === 0", 'datas restauradas');
   }
 
+  // ---- 4d. agrupar a lista em seções retráteis
+  {
+    const S = newStep('Agrupar a lista por status, prioridade ou etapa, em sanfona',
+      'No painel de filtros, “Agrupar por” troca as seções da lista. “Novidades” fica sempre no topo e o mais recente de atualização vem primeiro em cada grupo. Cada seção abre e fecha, e a escolha (e o modo) ficam guardados.');
+    const titles = () => popup.eval("JSON.stringify([...document.querySelectorAll('#list > details > summary')].map((s) => s.textContent))").then(JSON.parse);
+    const ui = async () => {
+      await popup.eval("window.dispatchEvent(new Event('pagehide')); true"); // grava já o que estava esperando o atraso
+      return sw.eval("chrome.storage.local.get('ui').then(({ ui }) => JSON.stringify({ groupBy: ui?.groupBy, sections: ui?.sections }))").then(JSON.parse);
+    };
+    const open = (id) => popup.eval(`document.querySelector('#list summary[data-focus="sec:${id}"]')?.parentElement.open`);
+    const clickSection = (id) => popup.click(`document.querySelector('#list summary[data-focus="sec:${id}"]')`);
+
+    S.check('Padrão: Novidades e Acompanhando, como sempre', JSON.stringify(await titles()) === '["Novidades (3)","Acompanhando (1)"]', JSON.stringify(await titles()));
+    S.check('O seletor “Agrupar” está no painel de filtros, em “padrão”, e não conta como filtro', (await popup.eval("document.getElementById('f-group').value")) === 'padrao' && (await popup.eval("document.getElementById('filters-count').hidden")));
+
+    await popup.select('#f-group', 'status');
+    await popup.waitFor("document.querySelectorAll('#list > details > summary').length === 2 && document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'por status');
+    S.check('Por status: Novidades no topo e o resto no grupo do status (o ticket com novidade não se repete)', JSON.stringify(await titles()) === '["Novidades (3)","Pendente (1)"]', JSON.stringify(await titles()));
+    S.check('Nenhum card aparece duas vezes', (await popup.eval("document.querySelectorAll('.card').length")) === 4);
+    await popup.select('#f-group', 'prioridade');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:prioridade:3\"]') !== null", 'por prioridade');
+    S.check('Por prioridade: o ticket de prioridade Média no seu grupo', JSON.stringify(await titles()) === '["Novidades (3)","Média (1)"]', JSON.stringify(await titles()));
+    await popup.select('#f-group', 'etapa');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:etapa:none\"]') !== null", 'por etapa');
+    S.check('Por etapa, sem nenhuma etapa marcada: “Sem etapa”', JSON.stringify(await titles()) === '["Novidades (3)","Sem etapa (1)"]', JSON.stringify(await titles()));
+
+    // abrir e fechar à mão, em modo status
+    await popup.select('#f-group', 'status');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'por status');
+    S.check('O grupo começa aberto', (await open('status:4')) === true);
+    await clickSection('status:4');
+    await sleep(350);
+    S.check('Clicar no título fecha o grupo', (await open('status:4')) === false);
+    S.check('Fechar um grupo grava só essa escolha, e o modo', JSON.stringify(await ui()) === '{"groupBy":"status","sections":{"status:4":false}}', JSON.stringify(await ui()));
+    await S.shot(popup, 'Por status com o grupo “Pendente” fechado: a sanfona', "document.querySelector('#list')");
+
+    // a escolha sobrevive a trocar de modo e a uma nova atualização da lista
+    await popup.select('#f-group', 'padrao');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:padrao:acompanhando\"]') !== null", 'padrão');
+    S.check('No modo padrão, as seções estão como de costume (a escolha era só do modo status)', (await open('padrao:acompanhando')) === true);
+    await popup.select('#f-group', 'status');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'por status');
+    S.check('Voltando ao status, o grupo segue fechado', (await open('status:4')) === false);
+    await sw.eval("chrome.storage.local.get('user').then(({ user }) => chrome.storage.local.set({ user: { ...user, pinned: user.pinned ?? [] } }))"); // mexe no storage: a lista é recriada
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'lista recriada');
+    S.check('Uma atualização da lista não reabre o grupo fechado', (await open('status:4')) === false);
+
+    // “Novidades” também fecha, em qualquer modo
+    await clickSection('news');
+    await sleep(350);
+    const newsOpen = await open('news');
+    const saved = (await ui()).sections;
+    S.check('Novidades fecha e a escolha vale em todos os modos', newsOpen === false && saved.news === false && saved['status:4'] === false && Object.keys(saved).length === 2, `aberta=${newsOpen} guardado=${JSON.stringify(saved)}`);
+    await popup.select('#f-group', 'prioridade');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:prioridade:3\"]') !== null", 'por prioridade');
+    S.check('…inclusive em outro modo', (await open('news')) === false);
+
+    // outro popup lê o que foi guardado (o popup grava com 200 ms de atraso e na hora ao fechar: aqui simulamos o fechar)
+    await ui();
+    const other = await openPage(`chrome-extension://${extId}/popup.html`, 420, 600);
+    await other.waitFor("document.querySelector('#list summary[data-focus=\"sec:news\"]') !== null", 'outro popup');
+    S.check('Um popup novo abre no mesmo modo e com Novidades fechada', (await other.eval("document.getElementById('f-group').value")) === 'prioridade' && (await other.eval("document.querySelector('#list summary[data-focus=\"sec:news\"]').parentElement.open")) === false);
+    other.close();
+
+    // com filtro, só entram os tickets que passam
+    await popup.select('#f-group', 'status');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'por status');
+    await popup.type('#q', 'mensal');
+    await popup.waitFor("document.querySelectorAll('.card').length === 1", 'filtro');
+    S.check('Com filtro, o agrupamento só tem o que passou (1 ticket, em Novidades)', JSON.stringify(await titles()) === '["Novidades (1)"]', JSON.stringify(await titles()));
+    await popup.click("document.getElementById('f-clear')");
+    await popup.waitFor("document.querySelectorAll('.card').length === 4", 'filtros limpos');
+    S.check('“Limpar filtros” não desfaz o agrupamento', (await popup.eval("document.getElementById('f-group').value")) === 'status');
+
+    // desfaz: voltar ao padrão de cada seção apaga a escolha guardada
+    await clickSection('news');
+    await sleep(100);
+    await popup.select('#f-group', 'status');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:status:4\"]') !== null", 'por status');
+    await clickSection('status:4');
+    await sleep(350);
+    await popup.select('#f-group', 'padrao');
+    await popup.waitFor("document.querySelector('#list summary[data-focus=\"sec:padrao:acompanhando\"]') !== null", 'padrão');
+    const final = await ui();
+    S.check('Reabrir tudo e voltar ao padrão deixa o storage sem escolhas guardadas', final.groupBy === 'padrao' && Object.keys(final.sections).length === 0, JSON.stringify(final));
+  }
+
   // ---- 5. detalhes
   let glpiTab;
   {
