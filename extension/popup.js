@@ -1,4 +1,5 @@
 import {
+  getAppearance,
   getConfig,
   getState,
   getTags,
@@ -40,6 +41,7 @@ import { isPinned, splitPinned, summaryText, togglePin } from './src/pins.js';
 import { closePickers, createPicker } from './src/picker-ui.js';
 import { LIMITS, createTag, defsOf, tagsOfTicket, toggleTag } from './src/tags.js';
 import { donutModel, formatSpan } from './src/timeshare.js';
+import { staleLevel, staleText } from './src/stale.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -193,12 +195,21 @@ const pinButton = (t, pinned) => h('button', {
 }, pinned ? 'Desafixar' : 'Fixar');
 
 // ---------- cards da lista ----------
+// Ticket em aberto sem movimentação há muito tempo (src/stale.js): borda âmbar/vermelha no card e o texto "parado há …".
+// Usa o dateMod que já está no cache: nenhuma consulta ao GLPI. Com a opção desligada nas Opções, devolve null.
+function staleInfo(t) {
+  const now = Date.now();
+  const level = staleLevel(t, now, data.appearance?.stale);
+  return level ? { level, tone: level === 'red' ? 'danger' : 'warn', text: staleText(t, now) } : null;
+}
+
 // Hierarquia do card: as tags da pessoa são o destaque (chips coloridos, sempre na primeira linha). O que vem do GLPI
 // (status, prioridade, Status extra, entidade, papel) vai numa linha de texto discreto logo abaixo. Só o que pede
 // atenção (sem acesso, erro ao ler) continua sendo chip.
-function metaLine(t, status, priorityTone) {
+function metaLine(t, status, priorityTone, stale) {
   const items = [
     status ? h('span', { class: `m-item m-${status.tone}` }, h('span', { class: 'm-dot', 'aria-hidden': 'true' }), status.label) : null,
+    stale ? h('span', { class: `m-item m-stale m-${stale.tone}`, title: `Sem movimentação desde ${formatDateTime(t.dateMod)}` }, stale.text) : null,
     t.priority ? h('span', { class: `m-item m-prio${priorityTone ? ` m-${priorityTone}` : ''}` }, PRIORITY[t.priority] ?? `P${t.priority}`) : null,
     t.extra ? h('span', { class: 'm-item', title: 'Status extra' }, `Extra: ${t.extra}`) : null,
     t.entity ? h('span', { class: 'm-item', title: 'Entidade' }, t.entity) : null,
@@ -221,6 +232,7 @@ function card(t, user) {
   ].filter(Boolean);
 
   const pinned = isPinned(user, t.id);
+  const staleNow = staleInfo(t);
   const actions = [tagsButton(t.id), pinButton(t, pinned)];
   if (unread.length) {
     actions.push(
@@ -239,7 +251,7 @@ function card(t, user) {
 
   // O card não é um botão (não pode ter botões dentro): o título é o botão de verdade, e o CSS estende a
   // área clicável dele ao card inteiro. As ações ficam acima dele, como irmãs, e continuam clicáveis.
-  return h('article', { class: `card${unread.length ? ' unread' : ''}${isDone(t) ? ' done' : ''}${pinned ? ' pinned' : ''}` },
+  return h('article', { class: `card${unread.length ? ' unread' : ''}${isDone(t) ? ' done' : ''}${pinned ? ' pinned' : ''}${staleNow ? ` stale-${staleNow.level}` : ''}` },
     h('div', { class: 'top' },
       h('button', {
         class: 'card-open',
@@ -254,7 +266,7 @@ function card(t, user) {
       h('time', {}, timeAgo(t.dateMod)),
       h('span', { class: 'chev', 'aria-hidden': 'true' }, '›')),
   chips.length ? h('div', { class: 'chips' }, chips) : null,
-  metaLine(t, status, priorityTone),
+  metaLine(t, status, priorityTone, staleNow),
   last ? h('p', { class: 'last' }, describeEvent(last)) : null,
   openTagsId === t.id ? tagPanel(t.id) : null,
   h('div', { class: 'actions' }, actions));
@@ -453,6 +465,11 @@ function liveSection() {
     d.truncated ? h('p', { class: 'muted' }, 'Mostrando os mais recentes. O histórico completo está no GLPI.') : null);
 }
 
+const staleChip = (t) => {
+  const info = staleInfo(t);
+  return info ? chip(info.text, info.tone, `Sem movimentação desde ${formatDateTime(t.dateMod)}`) : null;
+};
+
 async function copyRef(t, title) {
   try {
     await navigator.clipboard.writeText(`#${t.id} – ${title}`);
@@ -491,7 +508,7 @@ function renderDetail() {
 
   // replaceChildren() escreve "null" como texto se receber null: seções vazias precisam ser filtradas
   el.replaceChildren(...[
-    h('div', { class: 'd-bar' }, back, status ? chip(status.label, status.tone) : null),
+    h('div', { class: 'd-bar' }, back, h('span', { class: 'chips-inline' }, status ? chip(status.label, status.tone) : null, staleChip(t))),
     h('div', { class: 'd-title' }, h('span', { class: 'id' }, `#${t.id}`), h('h2', {}, title)),
     h('div', { class: 'd-actions' },
       h('button', { class: 'btn primary big', type: 'button', 'data-focus': 'open', onclick: () => openTicket(t.id) }, 'Abrir no GLPI ↗'),
@@ -779,14 +796,15 @@ async function addWatch(id) {
 }
 
 async function load() {
-  const [cfg, state, user, tags, saved] = await Promise.all([
+  const [cfg, state, user, tags, appearance, saved] = await Promise.all([
     getConfig(),
     getState(),
     getUser(),
     getTags(),
+    getAppearance(),
     ui ? null : getUi(),
   ]);
-  data = { cfg, state, user, tags };
+  data = { cfg, state, user, tags, appearance };
   if (!ui) ui = saved;
   paint();
   renderStatus(cfg, state, user);

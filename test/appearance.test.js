@@ -1,17 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_APPEARANCE, THEMES, normalizeAppearance, rootAttributes } from '../extension/src/appearance.js';
+import { DEFAULT_STALE } from '../extension/src/stale.js';
+
+const STALE = { ...DEFAULT_STALE };
 
 test('o padrão segue o sistema e vem sem neon (quem já usa não vê mudança)', () => {
-  assert.deepEqual(DEFAULT_APPEARANCE, { theme: 'auto', neon: false });
+  assert.deepEqual(DEFAULT_APPEARANCE, { theme: 'auto', neon: false, stale: STALE });
   assert.deepEqual(THEMES, ['auto', 'light', 'dark']);
 });
 
 test('normalizeAppearance aceita o válido e troca lixo pelo padrão, sempre devolvendo um objeto novo', () => {
-  assert.deepEqual(normalizeAppearance({ theme: 'dark', neon: true }), { theme: 'dark', neon: true });
-  assert.deepEqual(normalizeAppearance({ theme: 'light' }), { theme: 'light', neon: false });
+  assert.deepEqual(normalizeAppearance({ theme: 'dark', neon: true }), { theme: 'dark', neon: true, stale: STALE });
+  assert.deepEqual(normalizeAppearance({ theme: 'light' }), { theme: 'light', neon: false, stale: STALE });
   for (const lixo of [null, undefined, 5, 'dark', [], { theme: 'roxo' }, { theme: 3, neon: 'true' }, { neon: 1 }]) {
-    assert.deepEqual(normalizeAppearance(lixo), { theme: 'auto', neon: false }, JSON.stringify(lixo));
+    assert.deepEqual(normalizeAppearance(lixo), { theme: 'auto', neon: false, stale: STALE }, JSON.stringify(lixo));
   }
   const a = normalizeAppearance(null);
   a.neon = true;

@@ -357,6 +357,8 @@ try {
     S.check('Botões de ação ficam acima da área clicável do card', hit.action === true);
   }
 
+  const optionsEvents = []; // eventos (erros de JS) das páginas de Opções abertas ao longo do teste
+
   // ---- 4b. fixar tickets no topo
   {
     const S = newStep('Fixar tickets no topo da lista',
@@ -415,6 +417,92 @@ try {
     await popup.click("document.querySelector('.pins [data-focus=\"pin:159885\"]')");
     await popup.waitFor("document.querySelector('.pins') === null", 'sem fixados');
     S.check('Desafixar devolve o ticket à lista normal e limpa user.pinned', (await pins()).length === 0 && (await cardIds()).split(',').length === 4);
+  }
+
+  // ---- 4c. tickets parados
+  {
+    const S = newStep('Tickets parados: borda âmbar e vermelha, sem consultar o GLPI',
+      'Um ticket em aberto sem movimentação há 48 h ganha borda âmbar e há 5 dias, vermelha, com o aviso “parado há …” na linha de dados (e um chip nos detalhes). Usa o dateMod que a extensão já guarda: nenhuma consulta ao GLPI. Dá para desligar e mudar os limites em Opções → Aparência.');
+    const FMT = "(ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }";
+    const setAges = (ages) => sw.eval(`(async () => { const f = ${FMT}; const { state } = await chrome.storage.local.get('state'); for (const [id, h] of Object.entries(${JSON.stringify(ages)})) state.tickets[id].dateMod = f(Date.now() - h * 3600000); await chrome.storage.local.set({ state }); return true; })()`);
+    const saveAppearance = (a) => sw.eval(`chrome.storage.local.set({ appearance: ${JSON.stringify(a)} })`);
+    const cls = (id) => popup.eval(`${byText('.card', '#' + id)}?.className ?? ''`);
+    const metaOf = (id) => popup.eval(`${byText('.card', '#' + id)}?.querySelector('.meta')?.textContent ?? ''`);
+    const before = await sw.eval("chrome.storage.local.get('state').then(({ state }) => JSON.stringify(Object.fromEntries(Object.entries(state.tickets).map(([id, t]) => [id, t.dateMod]))))").then(JSON.parse);
+    const requests = world.requests.length;
+
+    S.check('Ticket recente não é destacado', !(await cls(159919)).includes('stale'), await cls(159919));
+    await setAges({ 159321: 60, 159885: 130 }); // 2 d 12 h (âmbar) e 5 d 10 h (vermelho); o #159919 segue recente
+    await popup.waitFor(`${byText('.card', '#159321')}?.classList.contains('stale-amber')`, 'âmbar');
+    S.check('Parado há 60 h: borda âmbar e o aviso “parado há 2 d …”', (await cls(159321)).includes('stale-amber') && /parado há 2 d/.test(await metaOf(159321)), `${await cls(159321)} | ${await metaOf(159321)}`);
+    S.check('Parado há 130 h: borda vermelha e o aviso “parado há 5 d …”', (await cls(159885)).includes('stale-red') && /parado há 5 d/.test(await metaOf(159885)), `${await cls(159885)} | ${await metaOf(159885)}`);
+    S.check('O ticket recente continua sem destaque', !(await cls(159919)).includes('stale'));
+    const border = (id, side = 'Top') => popup.eval(`getComputedStyle(${byText('.card', '#' + id)}).border${side}Color`);
+    const [amberB, redB, normalB] = [await border(159321), await border(159885), await border(159919)];
+    S.check('As três bordas são diferentes (âmbar, vermelha e a normal)', new Set([amberB, redB, normalB]).size === 3, `${amberB} | ${redB} | ${normalB}`);
+    S.check('Card com novidade e parado mantém a borda esquerda de destaque (azul) das novidades', (await border(159885, 'Left')) === (await border(159919, 'Left')) && (await cls(159885)).includes('unread'), `${await border(159885, 'Left')} vs ${await border(159919, 'Left')}`);
+    S.check('Ficar parado não gerou nenhuma consulta ao GLPI', world.requests.length === requests, `${world.requests.length - requests} consulta(s)`);
+    await S.shot(popup, 'Dois tickets parados: o #159321 (âmbar, 2 d) e o #159885 (vermelho, 5 d, com novidade)', byText('.card', '#159321'));
+
+    // detalhes: chip ao lado do status
+    await popup.click(cardButton('#159321'));
+    await popup.waitFor("!document.getElementById('detail').hidden && document.querySelector('#detail .d-bar .chip') !== null", 'detalhes');
+    S.check('Os detalhes mostram o chip “parado há …” ao lado do status', (await popup.text('#detail .d-bar')).includes('parado há 2 d'), await popup.text('#detail .d-bar'));
+    await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden", 'lista');
+
+    // desligado nas Opções: nada é destacado
+    await saveAppearance({ theme: 'auto', neon: false, stale: { enabled: false, amberHours: 48, redHours: 120 } });
+    await popup.waitFor("document.querySelectorAll('.card[class*=stale]').length === 0", 'sem destaque');
+    S.check('Desligado em Opções: nenhum card é destacado e o aviso some', !(await metaOf(159321)).includes('parado'));
+
+    // limites personalizados: 100 h e 200 h → o de 60 h deixa de ser parado e o de 130 h fica âmbar
+    await saveAppearance({ theme: 'auto', neon: false, stale: { enabled: true, amberHours: 100, redHours: 200 } });
+    await popup.waitFor(`${byText('.card', '#159885')}?.classList.contains('stale-amber')`, 'novo limite');
+    S.check('Com limites de 100 h e 200 h: o de 60 h não é parado e o de 130 h fica âmbar', !(await cls(159321)).includes('stale') && (await cls(159885)).includes('stale-amber'), `${await cls(159321)} | ${await cls(159885)}`);
+    await saveAppearance({ theme: 'auto', neon: false, stale: { enabled: true, amberHours: 48, redHours: 120 } });
+
+    // Opções → Aparência
+    const options = await openPage(`chrome-extension://${extId}/options.html#aparencia`, 900, 1100);
+    await options.waitFor("document.body.dataset.tabs === 'ready'", 'abas montadas');
+    await options.waitFor("document.getElementById('stale-amber').value === '48'", 'campos preenchidos');
+    const f = () => options.eval("JSON.stringify({ on: document.getElementById('stale-enabled').checked, amber: document.getElementById('stale-amber').value, red: document.getElementById('stale-red').value, hint: document.getElementById('stale-hint').textContent, role: document.getElementById('stale-enabled').getAttribute('role') })").then(JSON.parse);
+    const set = async (id, value) => { await options.type(`#${id}`, value); await options.eval(`document.getElementById('${id}').dispatchEvent(new Event('change', { bubbles: true }))`); await sleep(250); };
+    const saved = () => sw.eval("chrome.storage.local.get('appearance').then(({ appearance }) => JSON.stringify(appearance?.stale ?? null))").then(JSON.parse);
+    const inicial = await f();
+    S.check('Opções → Aparência: interruptor ligado, 48 h e 120 h, e a frase diz o que vale', inicial.on && inicial.amber === '48' && inicial.red === '120' && inicial.role === 'switch' && inicial.hint.includes('2 d') && inicial.hint.includes('5 d'), JSON.stringify(inicial));
+    await set('stale-amber', '72');
+    await set('stale-red', '168');
+    const custom = await saved();
+    S.check('Mudar os limites grava na hora (72 h e 168 h)', custom?.amberHours === 72 && custom?.redHours === 168 && custom?.enabled === true, JSON.stringify(custom));
+    await set('stale-red', '10'); // vermelho antes do amarelo: corrigido
+    const fixed = await f();
+    S.check('Vermelho menor que o amarelo é corrigido (amarelo + 1 h) e a tela avisa', fixed.red === '73' && fixed.hint.includes('Ajustei'), JSON.stringify(fixed));
+    await set('stale-amber', '0'); // abaixo do mínimo
+    S.check('Valor fora da faixa é ajustado para o mínimo de 1 hora', (await saved())?.amberHours === 1, JSON.stringify(await saved()));
+    await options.click("document.getElementById('stale-enabled')");
+    await sleep(250);
+    S.check('Desligar pelo interruptor grava e a frase muda', (await saved())?.enabled === false && (await f()).hint.includes('Desligado'), JSON.stringify(await f()));
+    await options.click("document.getElementById('stale-enabled')");
+    await set('stale-amber', '48');
+    await set('stale-red', '120');
+    await S.shot(options, 'Opções → Aparência → Tickets parados: interruptor, limites em horas e a prévia dos dois níveis', "document.getElementById('stale')");
+    optionsEvents.push(...options.events);
+    options.close();
+
+    // tema escuro com neon: as bordas continuam distintas
+    await popup.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    await saveAppearance({ theme: 'auto', neon: true, stale: { enabled: true, amberHours: 48, redHours: 120 } });
+    await popup.waitFor("'neon' in document.documentElement.dataset", 'neon');
+    S.check('No neon as bordas âmbar, vermelha e a normal continuam diferentes', new Set([await border(159321), await border(159885), await border(159919)]).size === 3, `${await border(159321)} | ${await border(159885)} | ${await border(159919)}`);
+    await S.shot(popup, 'Tickets parados no tema escuro com o neon ligado', byText('.card', '#159321'));
+    await sw.eval("chrome.storage.local.remove('appearance')");
+    await popup.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    await popup.waitFor("!('neon' in document.documentElement.dataset)", 'neon desligado');
+
+    // devolve as datas originais
+    await sw.eval(`(async () => { const { state } = await chrome.storage.local.get('state'); const orig = ${JSON.stringify(before)}; for (const [id, d] of Object.entries(orig)) if (state.tickets[id]) state.tickets[id].dateMod = d; await chrome.storage.local.set({ state }); return true; })()`);
+    await popup.waitFor("document.querySelectorAll('.card[class*=stale]').length === 0", 'datas restauradas');
   }
 
   // ---- 5. detalhes
@@ -525,7 +613,6 @@ try {
     guide.close();
   }
 
-  const optionsEvents = [];
 
   // ---- 9b. um ticket com erro no GLPI não derruba a verificação
   {

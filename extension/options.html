@@ -164,6 +164,37 @@
       <span class="btn primary">Acompanhar</span>
     </div>
   </section>
+
+  <section id="stale">
+    <h2>Tickets parados</h2>
+    <p class="note">No popup, o card de um ticket <strong>em aberto</strong> sem nenhuma movimentação há muito tempo ganha uma
+      borda discreta (amarela e, depois, vermelha) e o aviso “parado há …”. Usa a data da última atualização que a extensão
+      já tem: <strong>nenhuma consulta ao GLPI</strong>. Resolvidos e fechados nunca são destacados.</p>
+    <label class="switch">
+      <input type="checkbox" role="switch" id="stale-enabled">
+      <span class="track" aria-hidden="true"></span>
+      <span class="text"><strong>Destacar tickets parados</strong></span>
+    </label>
+    <div class="stale-fields">
+      <label class="field hours"><span>Amarelo a partir de</span>
+        <input id="stale-amber" type="number" min="1" max="8759" step="1" inputmode="numeric"> <span>horas</span>
+      </label>
+      <label class="field hours"><span>Vermelho a partir de</span>
+        <input id="stale-red" type="number" min="2" max="8760" step="1" inputmode="numeric"> <span>horas</span>
+      </label>
+    </div>
+    <p class="note" id="stale-hint" role="status"></p>
+    <div class="stale-previews" aria-hidden="true">
+      <article class="card stale-amber">
+        <div class="top"><span class="id">#148270</span><span class="title">Exemplo: parado no limite amarelo</span></div>
+        <p class="meta"><span class="m-item m-ok"><span class="m-dot"></span>Em atendimento</span><span class="m-sep">·</span><span class="m-item m-stale m-warn" id="stale-sample-amber"></span></p>
+      </article>
+      <article class="card stale-red">
+        <div class="top"><span class="id">#148271</span><span class="title">Exemplo: parado no limite vermelho</span></div>
+        <p class="meta"><span class="m-item m-ok"><span class="m-dot"></span>Em atendimento</span><span class="m-sep">·</span><span class="m-item m-stale m-danger" id="stale-sample-red"></span></p>
+      </article>
+    </div>
+  </section>
   </div>
 
   <div id="tab-tags" role="tabpanel" aria-labelledby="tabbtn-tags" hidden>

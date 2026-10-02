@@ -119,15 +119,15 @@ test('updateTags não grava quando nada mudou; getTags aceita o que estiver no s
 
 test('aparência: sem nada no storage vale o padrão; lixo gravado também; mudanças simultâneas não se perdem', async () => {
   fresh();
-  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false });
+  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false, stale: { enabled: true, amberHours: 48, redHours: 120 } });
   db.appearance = { theme: 'roxo', neon: 'sim', extra: 1 };
-  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false });
+  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false, stale: { enabled: true, amberHours: 48, redHours: 120 } });
   fresh();
   await Promise.all([
     updateAppearance((a) => { a.theme = 'dark'; }),
     updateAppearance((a) => { a.neon = true; }),
   ]);
-  assert.deepEqual(db.appearance, { theme: 'dark', neon: true });
+  assert.deepEqual(db.appearance, { theme: 'dark', neon: true, stale: { enabled: true, amberHours: 48, redHours: 120 } });
   const before = writes;
   await updateAppearance(() => false); // nada mudou: não grava (não acorda quem ouve o storage)
   assert.equal(writes, before);
