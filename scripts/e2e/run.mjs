@@ -357,6 +357,66 @@ try {
     S.check('Botões de ação ficam acima da área clicável do card', hit.action === true);
   }
 
+  // ---- 4b. fixar tickets no topo
+  {
+    const S = newStep('Fixar tickets no topo da lista',
+      'O botão “Fixar” (no card e nos detalhes) mantém o ticket numa seção “Fixados” no topo, sem limite de quantidade e mesmo com filtros. Com filtro ligado, a seção diz que está fora dos filtros e uma linha separa o resultado, para não parecer que o fixado passou no filtro.');
+    const cardIds = () => popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()");
+    const pins = () => sw.eval("chrome.storage.local.get('user').then(({ user }) => JSON.stringify(user?.pinned ?? null))").then(JSON.parse);
+    S.check('Sem fixados, não há seção “Fixados”', await popup.eval("document.querySelector('.pins') === null"));
+
+    await popup.click("document.querySelector('[data-focus=\"pin:159321\"]')");
+    await popup.waitFor("document.querySelector('.pins') !== null", 'seção Fixados');
+    S.check('Fixar põe o ticket na seção “Fixados”, no topo da lista', (await popup.eval("document.querySelector('#list').firstElementChild.classList.contains('pins') && document.querySelector('.pins summary').textContent.startsWith('Fixados (1)')")) && (await popup.eval("document.querySelector('.pins').textContent.includes('#159321')")));
+    S.check('O fixado não se repete em outra seção', (await cardIds()).split(',').filter((x) => x === '#159321').length === 1, await cardIds());
+    S.check('O botão do fixado vira “Desafixar”', (await popup.text('.pins [data-focus="pin:159321"]')) === 'Desafixar');
+    S.check('Fica gravado em user.pinned', JSON.stringify(await pins()) === '[159321]', JSON.stringify(await pins()));
+    S.check('Sem filtro, a seção não traz aviso nem há linha separadora', await popup.eval("document.querySelector('.pins-note') === null && document.querySelector('.list-sep') === null"));
+
+    // com filtro que NÃO pega o fixado: ele continua, separado e explicado
+    await popup.type('#q', 'mensal');
+    await popup.waitFor("document.querySelector('.list-sep') !== null", 'separador');
+    S.check('Com filtro, o fixado continua no topo, mesmo sem casar com a busca', (await popup.eval("document.querySelector('#list').firstElementChild.classList.contains('pins') && document.querySelector('.pins').textContent.includes('#159321')")));
+    S.check('…e a seção avisa que está fora dos filtros', (await popup.text('.pins-note')).includes('sempre visíveis, fora dos filtros'));
+    const sep = await popup.eval("document.querySelector('.list-sep').textContent"); // textContent: o CSS põe em maiúsculas
+    S.check('…uma linha separa o resultado dos filtros e conta só o resto', sep.includes('Resultado dos filtros') && sep.includes('1 de 3'), sep);
+    S.check('O resumo conta os fixados à parte', (await popup.text('#summary-text')) === 'Mostrando 1 de 3 · 1 fixado à parte', await popup.text('#summary-text'));
+    S.check('Na tela: o fixado e o resultado do filtro, e mais nada', (await cardIds()) === '#159321,#159919', await cardIds());
+    await S.shot(popup, 'Busca “mensal” com o #159321 fixado: a seção Fixados fica à parte, explicada, e uma linha separa o resultado', "document.querySelector('.pins')");
+
+    // filtro sem nenhum resultado: o fixado ainda está lá
+    await popup.type('#q', 'zzzz');
+    await popup.waitFor("[...document.querySelectorAll('#list .empty')].some((e) => e.textContent.includes('Nenhum outro ticket'))", 'nenhum outro');
+    S.check('Filtro sem resultado: o fixado continua e a lista diz que não há outros', (await cardIds()) === '#159321' && (await popup.text('#list')).includes('Nenhum outro ticket com esses filtros'));
+
+    await popup.click("document.getElementById('f-clear')");
+    await popup.waitFor("document.querySelector('.list-sep') === null && document.querySelectorAll('.card').length === 4", 'filtros limpos');
+    S.check('Limpar filtros tira o aviso e a linha; o fixado segue no topo', await popup.eval("document.querySelector('.pins-note') === null && document.querySelector('#list').firstElementChild.classList.contains('pins')"));
+
+    // fixar e desafixar também pelos detalhes (o #159321 não tem novidade: abrir os detalhes não mexe no badge dos próximos passos)
+    await popup.click(cardButton('#159321'));
+    await popup.waitFor("!document.getElementById('detail').hidden && document.querySelector('#detail [data-focus=\"pin:159321\"]') !== null", 'detalhes');
+    S.check('Os detalhes de um fixado mostram “Desafixar”', (await popup.text('#detail [data-focus="pin:159321"]')) === 'Desafixar');
+    await popup.click("document.querySelector('#detail [data-focus=\"pin:159321\"]')");
+    await popup.waitFor("document.querySelector('#detail [data-focus=\"pin:159321\"]')?.textContent === 'Fixar'", 'desafixado nos detalhes');
+    S.check('Desafixar pelos detalhes grava na hora', (await pins()).length === 0);
+    await popup.click("document.querySelector('#detail [data-focus=\"pin:159321\"]')");
+    await popup.waitFor("document.querySelector('#detail [data-focus=\"pin:159321\"]')?.textContent === 'Desafixar'", 'fixado de novo nos detalhes');
+    await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden && document.querySelector('.pins') !== null", 'lista');
+
+    // sem limite: um segundo, fixado pelo card (sem abrir os detalhes dele)
+    await popup.click("document.querySelector('[data-focus=\"pin:159885\"]')");
+    await popup.waitFor("document.querySelector('.pins summary')?.textContent.startsWith('Fixados (2)')", 'dois fixados');
+    S.check('Dois fixados, na ordem em que foram fixados', (await popup.eval("[...document.querySelectorAll('.pins .card .id')].map((e) => e.textContent).join()")) === '#159321,#159885' && JSON.stringify(await pins()) === '[159321,159885]');
+
+    // desafixar
+    await popup.click("document.querySelector('.pins [data-focus=\"pin:159321\"]')");
+    await popup.click("document.querySelector('.pins [data-focus=\"pin:159885\"]')");
+    await popup.waitFor("document.querySelector('.pins') === null", 'sem fixados');
+    S.check('Desafixar devolve o ticket à lista normal e limpa user.pinned', (await pins()).length === 0 && (await cardIds()).split(',').length === 4);
+  }
+
   // ---- 5. detalhes
   let glpiTab;
   {

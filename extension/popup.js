@@ -36,6 +36,7 @@ import {
   sanitizeFilters,
 } from './src/filters.js';
 import { h, tagColor } from './src/dom.js';
+import { isPinned, splitPinned, summaryText, togglePin } from './src/pins.js';
 import { closePickers, createPicker } from './src/picker-ui.js';
 import { LIMITS, createTag, defsOf, tagsOfTicket, toggleTag } from './src/tags.js';
 import { donutModel, formatSpan } from './src/timeshare.js';
@@ -181,6 +182,16 @@ const tagsButton = (id) => h('button', {
   onclick: () => toggleTagsPanel(id),
 }, 'Tags');
 
+// Fixar mantém o ticket no topo da lista, mesmo com filtros (src/pins.js). Sem limite de quantidade.
+const pinButton = (t, pinned) => h('button', {
+  class: 'btn link',
+  type: 'button',
+  'data-focus': `pin:${t.id}`,
+  'aria-pressed': String(pinned),
+  title: pinned ? 'Tirar este ticket do topo da lista' : 'Manter este ticket no topo da lista, mesmo com filtros',
+  onclick: () => updateUser((u) => { togglePin(u, t.id); }),
+}, pinned ? 'Desafixar' : 'Fixar');
+
 // ---------- cards da lista ----------
 // Hierarquia do card: as tags da pessoa são o destaque (chips coloridos, sempre na primeira linha). O que vem do GLPI
 // (status, prioridade, Status extra, entidade, papel) vai numa linha de texto discreto logo abaixo. Só o que pede
@@ -209,7 +220,8 @@ function card(t, user) {
     t.readError ? chip('erro ao ler', 'warn', 'O GLPI deu erro ao ler este ticket. Nova tentativa na próxima verificação.') : null,
   ].filter(Boolean);
 
-  const actions = [tagsButton(t.id)];
+  const pinned = isPinned(user, t.id);
+  const actions = [tagsButton(t.id), pinButton(t, pinned)];
   if (unread.length) {
     actions.push(
       h('button', { class: 'btn link', type: 'button', onclick: () => markRead(t.id) }, 'Marcar como lido'),
@@ -227,7 +239,7 @@ function card(t, user) {
 
   // O card não é um botão (não pode ter botões dentro): o título é o botão de verdade, e o CSS estende a
   // área clicável dele ao card inteiro. As ações ficam acima dele, como irmãs, e continuam clicáveis.
-  return h('article', { class: `card${unread.length ? ' unread' : ''}${isDone(t) ? ' done' : ''}` },
+  return h('article', { class: `card${unread.length ? ' unread' : ''}${isDone(t) ? ' done' : ''}${pinned ? ' pinned' : ''}` },
     h('div', { class: 'top' },
       h('button', {
         class: 'card-open',
@@ -255,6 +267,14 @@ function section(title, tickets, user, { open = true } = {}) {
     tickets.map((t) => card(t, user)));
 }
 
+// Os fixados aparecem sempre, com ou sem filtro. Com filtro ligado a seção diz isso e uma linha separa o resto, para não
+// parecer que um fixado "passou" no filtro.
+function pinnedSection(list, user, filtersOn) {
+  return h('details', { class: 'pins', open: true },
+    h('summary', {}, `Fixados (${list.length})`, filtersOn ? h('span', { class: 'pins-note' }, 'sempre visíveis, fora dos filtros') : null),
+    list.map((t) => card(t, user)));
+}
+
 function empty(title, text, action) {
   return h('div', { class: 'empty' }, h('strong', {}, title), text,
     action ? h('div', {}, h('button', { class: 'btn primary', onclick: action.run }, action.label)) : null);
@@ -279,19 +299,36 @@ function renderList(cfg, state, user, all, visible) {
       : empty('Buscando seus tickets…', 'A primeira busca leva alguns segundos.'));
     return;
   }
-  if (!visible.length) {
+  const { pinned } = splitPinned(all, user.pinned);
+  const pinnedIds = new Set(pinned.map((t) => t.id));
+  const shown = visible.filter((t) => !pinnedIds.has(t.id));
+  const filtersOn = activeFilterCount(ui.filters) > 0;
+  if (!shown.length && !pinned.length) {
     list.append(empty('Nenhum ticket com esses filtros', 'Ajuste a busca ou limpe os filtros.',
       { label: 'Limpar filtros', run: clearFilters }));
     return;
   }
-  const withNews = visible.filter((t) => unreadEvents(t, user.readAt).length);
-  const rest = visible.filter((t) => !withNews.includes(t));
-  const lastAt = (t) => t.events.at(-1)?.at ?? 0;
-  list.append(...[
-    section('Novidades', withNews.sort((a, b) => lastAt(b) - lastAt(a)), user),
-    section('Acompanhando', rest.filter((t) => !isDone(t)).sort((a, b) => modMs(b) - modMs(a)), user),
-    section('Encerrados', rest.filter(isDone).sort((a, b) => modMs(b) - modMs(a)), user, { open: false }),
-  ].filter(Boolean));
+  const parts = [];
+  if (pinned.length) parts.push(pinnedSection(pinned, user, filtersOn));
+  if (pinned.length && filtersOn) {
+    parts.push(h('div', { class: 'list-sep', role: 'separator' }, `Resultado dos filtros · ${shown.length} de ${all.length - pinned.length}`));
+  }
+  if (!shown.length) {
+    if (filtersOn) {
+      parts.push(empty('Nenhum outro ticket com esses filtros', 'Ajuste a busca ou limpe os filtros.',
+        { label: 'Limpar filtros', run: clearFilters }));
+    }
+  } else {
+    const withNews = shown.filter((t) => unreadEvents(t, user.readAt).length);
+    const rest = shown.filter((t) => !withNews.includes(t));
+    const lastAt = (t) => t.events.at(-1)?.at ?? 0;
+    parts.push(
+      section('Novidades', withNews.sort((a, b) => lastAt(b) - lastAt(a)), user),
+      section('Acompanhando', rest.filter((t) => !isDone(t)).sort((a, b) => modMs(b) - modMs(a)), user),
+      section('Encerrados', rest.filter(isDone).sort((a, b) => modMs(b) - modMs(a)), user, { open: false }),
+    );
+  }
+  list.append(...parts.filter(Boolean));
 }
 
 // ---------- tempo por atribuído (rosca) ----------
@@ -461,6 +498,7 @@ function renderDetail() {
       h('button', { class: 'btn', type: 'button', 'data-focus': 'copy', title: `Copia “#${t.id} – ${title}”`, onclick: () => copyRef(t, title) },
         copied ? 'Copiado ✓' : 'Copiar'),
       tagsButton(t.id),
+      pinButton(t, isPinned(data.user, t.id)),
       t.sources.includes('manual')
         ? h('button', { class: 'btn link', type: 'button', 'data-focus': 'stop', onclick: () => stopWatching(t.id) }, 'Parar de acompanhar')
         : null),
@@ -588,7 +626,7 @@ const pickers = {
   }),
 };
 
-function renderControls(cfg, tickets, options, visible, isUnread) {
+function renderControls(cfg, tickets, options, counts, isUnread) {
   const f = ui.filters;
   const show = isConfigured(cfg) && tickets.length > 0;
   $('#filters').hidden = !show;
@@ -643,7 +681,7 @@ function renderControls(cfg, tickets, options, visible, isUnread) {
 
   const active = activeFilterCount(f) > 0;
   $('#filter-summary').hidden = !active;
-  $('#summary-text').textContent = `Mostrando ${visible.length} de ${tickets.length}`;
+  $('#summary-text').textContent = summaryText(counts); // os fixados ficam de fora da conta dos filtros
 }
 
 // Botão de pausa, aviso "pausada" e botão de atualizar (que não faz nada enquanto pausado).
@@ -685,7 +723,12 @@ function paint() {
   const isUnread = (t) => unreadEvents(t, user.readAt).length > 0;
   const tagsOf = (t) => tagsOfTicket(data.tags, t.id).map((x) => x.def);
   const visible = applyFilters(tickets, ui.filters, isUnread, tagsOf);
-  renderControls(cfg, tickets, options, visible, isUnread);
+  const pinnedIds = new Set(splitPinned(tickets, user.pinned).pinned.map((t) => t.id));
+  renderControls(cfg, tickets, options, {
+    shown: visible.filter((t) => !pinnedIds.has(t.id)).length,
+    total: tickets.length - pinnedIds.size,
+    pinned: pinnedIds.size,
+  }, isUnread);
   // a lista é recriada a cada atualização: sem isto o foco do teclado (ex.: num botão de tag) cairia no <body>
   const list = $('#list');
   const focusKey = list.contains(document.activeElement) ? document.activeElement.dataset.focus : undefined;

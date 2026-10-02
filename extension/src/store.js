@@ -1,6 +1,6 @@
 // Acesso ao chrome.storage. Três chaves, com donos diferentes para evitar corrida:
 //   config  -> escrita pela página de opções
-//   user    -> escrita pela UI (tickets manuais, "lido em")
+//   user    -> escrita pela UI (tickets manuais, "lido em", fixados)
 //   state   -> escrita só pelo poller (cache de tickets, eventos)
 //   appearance -> escrita pela aba "Aparência" das Opções (tema, neon)
 // O session_token do GLPI fica em storage.session (some ao fechar o navegador).
@@ -8,6 +8,7 @@ import { mergeFilters } from './filters.js';
 import { emptyState } from './poller.js';
 import { normalizeTags } from './tags.js';
 import { normalizeAppearance } from './appearance.js';
+import { prunePinned } from './pins.js';
 
 export const DEFAULT_CONFIG = {
   baseUrl: '', // cada pessoa informa o endereço do seu GLPI nas Opções
@@ -52,7 +53,7 @@ export const setState = (state) => chrome.storage.local.set({ state });
 
 export async function getUser() {
   const { user } = await chrome.storage.local.get('user');
-  return { watched: {}, readAt: {}, ...user };
+  return { watched: {}, readAt: {}, pinned: [], ...user };
 }
 
 // Gravar `user` (ou `tags`) é ler → alterar → gravar, e o popup, as Opções e o service worker fazem isso ao mesmo
@@ -121,16 +122,18 @@ export const setPaused = (paused) =>
     u.pausedAt = paused ? Date.now() : null;
   });
 
-// Trocou de conta ou de GLPI: os tickets acompanhados e o "lido em" eram de outro lugar. Devolve false se já estava vazio.
+// Trocou de conta ou de GLPI: os tickets acompanhados, o "lido em" e os fixados eram de outro lugar. Devolve false se já
+// estava vazio.
 export function resetUser(user) {
-  const had = Object.keys(user.watched).length + Object.keys(user.readAt).length;
+  const had = Object.keys(user.watched).length + Object.keys(user.readAt).length + (user.pinned?.length ?? 0);
   user.watched = {};
   user.readAt = {};
+  user.pinned = [];
   return had > 0;
 }
 
-// Tira do `user` o que não serve mais: tickets acompanhados que expiraram (`expired`, vindo do poller) e o
-// "lido em" de tickets que já saíram do cache. Devolve false quando não havia nada a tirar.
+// Tira do `user` o que não serve mais: tickets acompanhados que expiraram (`expired`, vindo do poller), o "lido em" e os
+// fixados de tickets que já saíram do cache. Devolve false quando não havia nada a tirar.
 export function pruneUser(user, state, expired = []) {
   let changed = false;
   for (const id of expired) {
@@ -145,6 +148,7 @@ export function pruneUser(user, state, expired = []) {
       changed = true;
     }
   }
+  if (prunePinned(user, state)) changed = true;
   return changed;
 }
 
