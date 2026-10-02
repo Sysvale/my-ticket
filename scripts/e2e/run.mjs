@@ -211,6 +211,7 @@ try {
     await s.send('Runtime.enable');
     await s.send('Page.enable');
     await s.viewport(w, h);
+    await s.waitFor("document.readyState === 'complete'", `carregar ${url}`); // sem isto um eval cedo demais cai em about:blank
     return s;
   };
 
@@ -821,8 +822,8 @@ try {
 
   // ---- 9h. abas das Opções
   {
-    const S = newStep('Opções em abas: Conexão, Avisos, Tags e Dados locais',
-      'A página de Opções deixou de ser um arquivo comprido: quatro abas. Conexão e Avisos fazem parte do formulário (barra “Salvar” no pé da janela); Tags e Dados locais agem na hora e não mostram a barra. O endereço guarda a aba, e “#tags” abre a aba certa.');
+    const S = newStep('Opções em abas: Conexão, Avisos, Aparência, Tags e Dados locais',
+      'A página de Opções deixou de ser um arquivo comprido: cinco abas. Conexão e Avisos fazem parte do formulário (barra “Salvar” no pé da janela); Aparência, Tags e Dados locais agem na hora e não mostram a barra. O endereço guarda a aba, e “#tags” abre a aba certa.');
     const page = await openPage(`chrome-extension://${extId}/options.html`, 900, 760);
     await page.waitFor("document.body.dataset.tabs === 'ready'", 'abas montadas');
     const state = async () => JSON.parse(await page.eval(`JSON.stringify({
@@ -837,7 +838,7 @@ try {
 
     const inicial = await state();
     S.check('Abre na aba “Conexão”, com a barra de salvar e o “Testar conexão”', JSON.stringify(inicial.selected) === '["conexao"]' && inicial.visible.join() === 'conexao' && inicial.savebar && inicial.test, JSON.stringify(inicial));
-    S.check('São quatro abas, cada painel ligado à sua aba (ARIA)', await page.eval(`(() => { const tabs = [...document.querySelectorAll('[role=tab]')]; return tabs.length === 4 && tabs.every((b) => { const p = document.getElementById(b.getAttribute('aria-controls')); return p?.getAttribute('role') === 'tabpanel' && p.getAttribute('aria-labelledby') === b.id; }); })()`));
+    S.check('São cinco abas, cada painel ligado à sua aba (ARIA)', await page.eval(`(() => { const tabs = [...document.querySelectorAll('[role=tab]')]; return tabs.length === 5 && tabs.every((b) => { const p = document.getElementById(b.getAttribute('aria-controls')); return p?.getAttribute('role') === 'tabpanel' && p.getAttribute('aria-labelledby') === b.id; }); })()`));
     S.check('Só a aba atual entra na ordem do Tab (as setas andam entre elas)', inicial.tabbable.join() === 'conexao');
     await S.shot(page, 'Aba “Conexão”: conexão com o GLPI, o que acompanhar e avançado', "document.getElementById('tabbtn-conexao')");
 
@@ -879,6 +880,84 @@ try {
     optionsEvents.push(...reopened.events, ...junk.events);
     reopened.close();
     junk.close();
+  }
+
+  // ---- 9i. aparência: tema e efeito neon
+  {
+    const S = newStep('Aparência: tema e efeito neon (Opções → Aparência)',
+      'Uma aba nova nas Opções, que age na hora (sem “Salvar”): tema Automático/Claro/Escuro e o interruptor do efeito neon. O neon só aparece com o tema escuro em uso e vale no popup, nas Opções e no Guia. Padrão: automático, neon desligado.');
+    const dark = (page) => page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    const light = (page) => page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    const root = (page) => page.eval("JSON.stringify({ theme: document.documentElement.dataset.theme ?? null, neon: 'neon' in document.documentElement.dataset, bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(), accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() })").then(JSON.parse);
+    const saved = (page) => page.eval("chrome.storage.local.get('appearance').then((r) => JSON.stringify(r.appearance ?? null))").then(JSON.parse);
+    const options = await openPage(`chrome-extension://${extId}/options.html#aparencia`, 900, 900);
+    await options.waitFor("document.body.dataset.tabs === 'ready'", 'abas montadas');
+    await light(options);
+    await sleep(150);
+    const inicial = await options.eval(`JSON.stringify({
+      panel: document.getElementById('tab-aparencia').offsetParent !== null,
+      savebar: document.querySelector('.savebar').offsetParent !== null,
+      radios: [...document.querySelectorAll('input[name=theme]')].map((r) => r.value + (r.checked ? '*' : '')),
+      neon: document.getElementById('neon').checked,
+      role: document.getElementById('neon').getAttribute('role'),
+    })`).then(JSON.parse);
+    S.check('A aba abre por “#aparencia”, sem a barra de salvar, com tema Automático e neon desligado',
+      inicial.panel && !inicial.savebar && inicial.radios.join() === 'auto*,light,dark' && inicial.neon === false, JSON.stringify(inicial));
+    S.check('O neon é um interruptor de verdade (role=switch) e o padrão não grava nada', inicial.role === 'switch' && (await saved(options)) === null);
+    const base = await root(options);
+    S.check('Padrão: nada em <html> (segue o sistema) e o claro de antes', base.theme === null && base.neon === false && base.bg === '#ffffff', JSON.stringify(base));
+
+    // neon ligado com o sistema escuro
+    await dark(options);
+    await sleep(150);
+    await options.click("document.getElementById('neon')");
+    await options.waitFor("'neon' in document.documentElement.dataset", 'neon ligado');
+    const neon = await root(options);
+    S.check('Ligar o neon com o sistema escuro aplica na hora o fundo mais fundo e o ciano', neon.neon === true && neon.accent === '#22d3ee' && neon.bg === '#0a0e13', JSON.stringify(neon));
+    const gravado = await saved(options);
+    S.check('…e grava na chave “appearance” (tema automático)', gravado?.theme === 'auto' && gravado?.neon === true, JSON.stringify(gravado));
+    await S.shot(options, 'Aba “Aparência” com o neon ligado (tema automático, sistema escuro): prévia das tags e do botão com brilho', "document.getElementById('appearance')");
+
+    // o popup também acompanha, e o brilho está nas tags e no botão
+    const pop = await openPage(`chrome-extension://${extId}/popup.html`, 420, 600);
+    await dark(pop);
+    await pop.waitFor("'neon' in document.documentElement.dataset && document.querySelector('.card') !== null", 'popup com neon');
+    const glow = await pop.eval(`JSON.stringify({
+      add: getComputedStyle(document.querySelector('form.add .btn.primary')).boxShadow !== 'none',
+      tag: (() => { const c = document.querySelector('.chip.tag'); return c ? getComputedStyle(c).boxShadow !== 'none' : null; })(),
+      plain: (() => { const c = document.querySelector('.chip:not(.tag):not(.ok):not(.warn):not(.danger):not(.info):not(.accent)'); return c ? getComputedStyle(c).boxShadow : 'none'; })(),
+    })`).then(JSON.parse);
+    S.check('No popup o botão principal e as tags têm brilho; o chip cinza continua liso', glow.add === true && glow.tag !== false && glow.plain === 'none', JSON.stringify(glow));
+    await S.shot(pop, 'Popup com o neon ligado (escuro): ciano, brilho nas tags, no botão e no cartão com novidades', "document.querySelector('.card')");
+
+    // tema Claro escolhido: vence o sistema escuro e o neon se apaga (só existe no escuro)
+    await options.click("document.querySelector('input[name=theme][value=light]')");
+    await options.waitFor("document.documentElement.dataset.theme === 'light'", 'tema claro');
+    const claro = await root(options);
+    S.check('Tema Claro escolhido vence o sistema escuro e apaga o neon', claro.theme === 'light' && claro.neon === false && claro.bg === '#ffffff', JSON.stringify(claro));
+    S.check('…o popup aberto acompanha sem recarregar', await pop.waitFor("document.documentElement.dataset.theme === 'light' && !('neon' in document.documentElement.dataset)", 'popup claro').then(() => true));
+    S.check('…e o interruptor continua ligado: a preferência não se perde', (await saved(options)).neon === true && (await options.eval("document.getElementById('neon').checked")) === true);
+
+    // tema Escuro escolhido com o sistema claro: o neon volta
+    await light(options);
+    await options.click("document.querySelector('input[name=theme][value=dark]')");
+    await options.waitFor("document.documentElement.dataset.theme === 'dark' && 'neon' in document.documentElement.dataset", 'escuro forçado');
+    const escuro = await root(options);
+    S.check('Tema Escuro escolhido vale mesmo com o sistema claro, e o neon volta', escuro.theme === 'dark' && escuro.neon === true && escuro.bg === '#0a0e13', JSON.stringify(escuro));
+    await options.click("document.getElementById('neon')");
+    await options.waitFor("!('neon' in document.documentElement.dataset)", 'neon desligado');
+    const semNeon = await root(options);
+    S.check('Desligar o neon volta ao escuro de antes (fundo #12151b, azul de antes)', semNeon.theme === 'dark' && semNeon.neon === false && semNeon.bg === '#12151b' && semNeon.accent === '#7ba4ff', JSON.stringify(semNeon));
+    await S.shot(options, 'Tema Escuro escolhido, neon desligado: o escuro de antes', "document.getElementById('appearance')");
+
+    // volta ao padrão para os passos seguintes
+    await options.click("document.querySelector('input[name=theme][value=auto]')");
+    await options.waitFor("document.documentElement.dataset.theme === undefined", 'automático');
+    S.check('Voltar a Automático tira o atributo de <html>', (await root(options)).theme === null);
+    optionsEvents.push(...options.events, ...pop.events);
+    await light(pop);
+    options.close();
+    pop.close();
   }
 
   // ---- 10. opções: salvar avisa e grava

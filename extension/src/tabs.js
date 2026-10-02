@@ -1,8 +1,8 @@
 // Abas da página de Opções: lógica pura (qual aba abrir, como o teclado navega). O DOM fica em options-tabs.js.
-export const TABS = ['conexao', 'avisos', 'tags', 'dados'];
+export const TABS = ['conexao', 'avisos', 'aparencia', 'tags', 'dados'];
 export const DEFAULT_TAB = 'conexao';
 
-// Abas que fazem parte do formulário e valem com "Salvar". Tags e Dados locais agem na hora, sem a barra de salvar.
+// Abas que fazem parte do formulário e valem com "Salvar". Aparência, Tags e Dados locais agem na hora, sem a barra de salvar.
 export const FORM_TABS = new Set(['conexao', 'avisos']);
 
 // "#tags" -> 'tags'. Qualquer outra coisa (vazio, lixo, "#outra") -> null, para quem chamou escolher a aba padrão.

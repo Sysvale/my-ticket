@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { markRead, pruneUser, updateUser } from '../extension/src/store.js';
+import { getAppearance, markRead, pruneUser, updateAppearance, updateUser } from '../extension/src/store.js';
 
 // chrome.storage.local simulado com latência, para expor gravações que se atropelam.
 let db;
@@ -115,4 +115,20 @@ test('updateTags não grava quando nada mudou; getTags aceita o que estiver no s
   const tags = await getTags();
   assert.equal(tags.defs, null);
   assert.deepEqual(tags.assign, {});
+});
+
+test('aparência: sem nada no storage vale o padrão; lixo gravado também; mudanças simultâneas não se perdem', async () => {
+  fresh();
+  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false });
+  db.appearance = { theme: 'roxo', neon: 'sim', extra: 1 };
+  assert.deepEqual(await getAppearance(), { theme: 'auto', neon: false });
+  fresh();
+  await Promise.all([
+    updateAppearance((a) => { a.theme = 'dark'; }),
+    updateAppearance((a) => { a.neon = true; }),
+  ]);
+  assert.deepEqual(db.appearance, { theme: 'dark', neon: true });
+  const before = writes;
+  await updateAppearance(() => false); // nada mudou: não grava (não acorda quem ouve o storage)
+  assert.equal(writes, before);
 });
