@@ -36,6 +36,12 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   fixados à parte (“Mostrando 1 de 3 · 1 fixado à parte”), para ficar claro o que passou no filtro e o que está ali por
   estar fixado. O ticket fixado não se repete em outra seção. Quando um fixado sai do radar (resolvido há dias, ou troca
   de conta), ele é desafixado sozinho. Fica só neste navegador.
+- **Tickets parados:** um ticket **em aberto** sem nenhuma movimentação há muito tempo ganha, no popup, uma **borda
+  discreta âmbar** (a partir de **48 h**) e **vermelha** (a partir de **5 dias**), mais o aviso “parado há 2 d 4 h” na linha
+  de dados do card (e um chip nos detalhes), então não depende só de cor. Usa a data da última atualização que a extensão
+  já guarda: **nenhuma consulta ao GLPI**. Resolvidos, fechados, sem acesso e com erro de leitura nunca são destacados.
+  Em Opções → **Aparência** dá para desligar e mudar os dois limites (em horas, de 1 a 8760; o vermelho sempre depois do
+  amarelo), com uma prévia dos dois níveis.
 - **Aparência:** em Opções → **Aparência**, tema **Automático** (segue o sistema), **Claro** ou **Escuro**, e o
   interruptor do **efeito neon** (cores vivas e brilho nas tags, botões e cartões, só no tema escuro). Vale na hora, em
   todas as telas, e fica só neste navegador. Padrão: automático e neon desligado.
@@ -157,7 +163,7 @@ importe e apague a cópia (ele contém tokens).
 |---|---|---|
 | **Conexão** | URL e tokens do GLPI, o que acompanhar, intervalo e campo do Status extra | barra **Salvar** no pé da janela |
 | **Avisos** | quando avisar, som, chamar a atenção, ocultar conteúdo | barra **Salvar** no pé da janela |
-| **Aparência** | tema (automático, claro ou escuro) e o interruptor do efeito neon | na hora (sem barra) |
+| **Aparência** | tema (automático, claro ou escuro), efeito neon e destaque de tickets parados (limites) | na hora (sem barra) |
 | **Tags** | criar, renomear, recolorir, reordenar, apagar, exportar/importar | na hora (sem barra) |
 | **Dados locais** | apagar credenciais e dados, e o aviso de quando as tags se perdem | na hora (sem barra) |
 
@@ -258,6 +264,7 @@ extension/
   src/filters.js     filtros do popup (lógica pura)
   src/omnibox.js     sugestões e leitura do que se digita na barra de endereços (lógica pura)
   src/pins.js        tickets fixados no topo da lista (lógica pura)
+  src/stale.js       tickets parados: limites, nível âmbar/vermelho e o texto “parado há …” (lógica pura)
   src/timeshare.js   tempo por atribuído / rosca (lógica pura: log do GLPI → fatias que somam 100%)
   src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)
   src/picker-ui.js   o DOM desse seletor (botão, busca, lista, teclado e ARIA)

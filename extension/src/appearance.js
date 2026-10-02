@@ -1,13 +1,14 @@
-// Aparência: tema (automático, claro ou escuro) e efeito neon. Lógica pura, sem DOM nem chrome.*, testada em Node.
-// Fica em chrome.storage.local, na chave `appearance`, escrita só pela aba "Aparência" das Opções.
+// Aparência: tema (automático, claro ou escuro), efeito neon e destaque de tickets parados. Lógica pura, sem DOM nem
+// chrome.*, testada em Node. Fica em chrome.storage.local, na chave `appearance`, escrita só pela aba "Aparência" das Opções.
+import { DEFAULT_STALE, normalizeStale } from './stale.js';
 
 export const THEMES = ['auto', 'light', 'dark'];
-export const DEFAULT_APPEARANCE = Object.freeze({ theme: 'auto', neon: false });
+export const DEFAULT_APPEARANCE = Object.freeze({ theme: 'auto', neon: false, stale: DEFAULT_STALE });
 
 // O que está no storage pode ser lixo (ou nem existir): sempre devolve um objeto novo e válido.
 export function normalizeAppearance(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
-  return { theme: THEMES.includes(r.theme) ? r.theme : DEFAULT_APPEARANCE.theme, neon: r.neon === true };
+  return { theme: THEMES.includes(r.theme) ? r.theme : DEFAULT_APPEARANCE.theme, neon: r.neon === true, stale: normalizeStale(r.stale) };
 }
 
 // Atributos de <html> que o ui.css lê. `theme`: 'light' | 'dark' só quando a pessoa escolheu (null = segue o sistema,

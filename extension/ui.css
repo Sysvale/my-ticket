@@ -251,6 +251,12 @@ body.popup { width: 420px; max-height: 600px; display: flex; flex-direction: col
 .card-open:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 1px; }
 .card.unread { border-left-color: var(--accent); }
 .card.done { opacity: .75; }
+/* ticket parado (src/stale.js): borda discreta âmbar e depois vermelha; o texto "parado há …" na linha de dados diz o mesmo
+   sem depender de cor. No hover vale a borda de destaque de sempre; no card com novidade a borda esquerda segue azul. */
+.card.stale-amber:not(:hover) { border-color: color-mix(in srgb, var(--warn) 60%, var(--border)); }
+.card.stale-red:not(:hover) { border-color: color-mix(in srgb, var(--danger) 65%, var(--border)); }
+.card.unread.stale-amber:not(:hover), .card.unread.stale-red:not(:hover) { border-left-color: var(--accent); }
+.m-stale { color: var(--c); font-weight: 600; }
 .card .top { display: flex; align-items: baseline; gap: 8px; }
 .card .id { font-weight: 600; color: var(--accent); }
 .card .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -865,6 +871,12 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 }
 .preview .note { margin-right: 4px; }
 
+/* seção "Tickets parados" da aba Aparência */
+.stale-fields { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 10px 0 4px; }
+.options label.field.hours { grid-template-columns: auto 90px auto; align-items: center; gap: 8px; margin-bottom: 0; }
+.stale-previews { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.stale-previews .card { margin: 0; cursor: default; }
+
 /* ---------- efeito neon (Opções → Aparência) ---------- */
 /* `data-neon` só existe com o tema escuro em uso (rootAttributes, em src/appearance.js). O fundo fica mais fundo e as cores
    mais vivas. A cor de uma tag em hexadecimal já vem legível para o escuro de antes (src/color.js), e este fundo é ainda
@@ -917,3 +929,8 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 :root[data-neon] ::-webkit-scrollbar-track { background: transparent; }
 :root[data-neon] ::-webkit-scrollbar-thumb { border-radius: 4px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 :root[data-neon] .dn-ring { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 38%, transparent)); }
+:root[data-neon] .card.stale-amber:not(:hover) { border-color: color-mix(in srgb, var(--warn) 60%, var(--border)); }
+:root[data-neon] .card.stale-red:not(:hover) { border-color: color-mix(in srgb, var(--danger) 65%, var(--border)); }
+:root[data-neon] .card.stale-amber:not(.unread):not(:hover) { box-shadow: 0 0 10px -3px color-mix(in srgb, var(--warn) 55%, transparent); }
+:root[data-neon] .card.stale-red:not(.unread):not(:hover) { box-shadow: 0 0 10px -3px color-mix(in srgb, var(--danger) 60%, transparent); }
+:root[data-neon] .card.unread.stale-amber:not(:hover), :root[data-neon] .card.unread.stale-red:not(:hover) { border-left-color: var(--accent); }
