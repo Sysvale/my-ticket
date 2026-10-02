@@ -14,6 +14,16 @@
   --tag-purple: #7c3aed;
   --tag-teal: #0f766e;
   --tag-pink: #be185d;
+  --dn-1: #2a78d6;
+  --dn-2: #d9531e;
+  --dn-3: #14946a;
+  --dn-4: #b97800;
+  --dn-5: #7c3aed;
+  --dn-6: #be185d;
+  --dn-7: #0e7490;
+  --dn-other: #667085;
+  --dn-queue: #788296;
+  --dn-unknown: #9c8051;
 }
 /* Tema escuro: pelo sistema (sem data-theme) ou escolhido nas Opções (data-theme="dark"). As duas listas de variáveis
    precisam ser iguais (test/theme-css.test.js confere). data-theme="light" força o claro mesmo com o sistema escuro. */
@@ -33,6 +43,16 @@
     --tag-purple: #b79bff;
     --tag-teal: #4fd1c5;
     --tag-pink: #f472b6;
+    --dn-1: #5b9cf0;
+    --dn-2: #f0764a;
+    --dn-3: #2fc596;
+    --dn-4: #e0a21f;
+    --dn-5: #a78bfa;
+    --dn-6: #f472b6;
+    --dn-7: #38bdf8;
+    --dn-other: #98a2b3;
+    --dn-queue: #6b7686;
+    --dn-unknown: #b89b6a;
   }
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -52,6 +72,16 @@
   --tag-purple: #b79bff;
   --tag-teal: #4fd1c5;
   --tag-pink: #f472b6;
+  --dn-1: #5b9cf0;
+  --dn-2: #f0764a;
+  --dn-3: #2fc596;
+  --dn-4: #e0a21f;
+  --dn-5: #a78bfa;
+  --dn-6: #f472b6;
+  --dn-7: #38bdf8;
+  --dn-other: #98a2b3;
+  --dn-queue: #6b7686;
+  --dn-unknown: #b89b6a;
 }
 
 * { box-sizing: border-box; }
@@ -733,6 +763,45 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 .options .loss-box p { margin: 6px 0; }
 .options .loss-box ul { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; }
 
+/* ---------- rosca: tempo por atribuído (detalhes do ticket) ---------- */
+.dn { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.dn-chart { position: relative; flex: none; width: 132px; height: 132px; }
+.dn-ring { width: 100%; height: 100%; border-radius: 50%; }
+.dn-hole {
+  position: absolute;
+  inset: 24px;
+  display: grid;
+  place-content: center;
+  border-radius: 50%;
+  background: var(--bg);
+  text-align: center;
+  line-height: 1.25;
+}
+.dn-hole strong { font-size: 14px; }
+.dn-hole span { color: var(--muted); font-size: 10px; }
+.dn-legend { flex: 1; min-width: 170px; display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.dn-legend li {
+  display: grid;
+  grid-template: "sw name pct" auto "sw val pct" auto / 10px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  font-size: 12px;
+}
+.dn-sw { grid-area: sw; align-self: start; width: 10px; height: 10px; margin-top: 3px; border-radius: 3px; background: var(--sw); }
+.dn-name { grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dn-val { grid-area: val; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.dn-pct { grid-area: pct; font-weight: 600; text-align: right; }
+.dn-val, .dn-pct { font-variant-numeric: tabular-nums; }
+.dn-live { color: var(--accent); }
+.dn-c-1 { --sw: var(--dn-1); } .dn-c-2 { --sw: var(--dn-2); } .dn-c-3 { --sw: var(--dn-3); } .dn-c-4 { --sw: var(--dn-4); }
+.dn-c-5 { --sw: var(--dn-5); } .dn-c-6 { --sw: var(--dn-6); } .dn-c-7 { --sw: var(--dn-7); }
+.dn-c-other { --sw: var(--dn-other); } .dn-c-queue { --sw: var(--dn-queue); } .dn-c-unknown { --sw: var(--dn-unknown); }
+.dn-note { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.dn-note.warn { color: var(--warn); }
+.dn-opts { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 8px; }
+.dn-opts label { font-size: 12px; }
+.dn-opts input { margin: 0 6px 0 0; vertical-align: -2px; }
+
 /* ---------- aba "Aparência" das Opções ---------- */
 .options fieldset.radios { margin: 14px 0; padding: 0; border: 0; }
 .options fieldset.radios legend { margin-bottom: 4px; padding: 0; font-size: 12px; font-weight: 600; }
@@ -831,3 +900,4 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 :root[data-neon] ::-webkit-scrollbar { width: 8px; height: 8px; }
 :root[data-neon] ::-webkit-scrollbar-track { background: transparent; }
 :root[data-neon] ::-webkit-scrollbar-thumb { border-radius: 4px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+:root[data-neon] .dn-ring { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 38%, transparent)); }

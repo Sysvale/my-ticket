@@ -165,6 +165,34 @@ export function createClient({
       return data;
     },
 
+    // O ticket com o histórico (log) do GLPI, para o gráfico de tempo por atribuído. SÓ é chamado quando a pessoa pede o
+    // gráfico: nunca pelo polling. `logs` é null quando o perfil não tem o direito "Logs" (o GLPI responde 200 com um
+    // erro dentro de `_logs`) ou quando a instância não conhece `with_logs`. Sem os links HATEOAS, que só pesam.
+    async ticketWithLogs(id) {
+      const data = await request(`Ticket/${id}?with_logs=true&get_hateoas=false`);
+      if (!data || Array.isArray(data)) throw new GlpiError(`Resposta inesperada para o ticket #${id}`);
+      const { _logs, ...ticket } = data;
+      const denied = _logs == null || (!Array.isArray(_logs) && typeof _logs === 'object' && 'error' in _logs && 'message' in _logs);
+      if (denied) return { ticket, logs: null };
+      return { ticket, logs: Array.isArray(_logs) ? _logs : Object.values(_logs) };
+    },
+
+    // Quem está no ticket agora, com o papel (1 requerente, 2 atribuído, 3 observador). O log diz quem entrou e saiu, mas
+    // não em que papel: o papel só se sabe de quem ainda está aqui. Sem direito de leitura vira lista vazia.
+    async ticketActors(id) {
+      const read = async (sub, field, type) => {
+        try {
+          const rows = await request(`Ticket/${id}/${sub}?range=0-199&get_hateoas=false`);
+          return (Array.isArray(rows) ? rows : []).map((r) => ({ type, id: Number(r[field]), role: Number(r.type) }));
+        } catch (e) {
+          if (e instanceof GlpiError && [400, 403, 404].includes(e.status)) return [];
+          throw e;
+        }
+      };
+      const [users, groups] = await Promise.all([read('Ticket_User', 'users_id', 'User'), read('Group_Ticket', 'groups_id', 'Group')]);
+      return [...users, ...groups].filter((a) => Number.isInteger(a.id) && a.id > 0 && [1, 2, 3].includes(a.role));
+    },
+
     followups: (id, n = 10) => subitems(`Ticket/${id}/ITILFollowup`, n),
     // Instâncias sem o item (GLPI antigo) ou sem direito de leitura viram lista vazia.
     solutions: (id, n = 3) => subitems(`Ticket/${id}/ITILSolution`, n, [400, 403, 404]),

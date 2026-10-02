@@ -38,6 +38,7 @@ import {
 import { h, tagColor } from './src/dom.js';
 import { closePickers, createPicker } from './src/picker-ui.js';
 import { LIMITS, createTag, defsOf, tagsOfTicket, toggleTag } from './src/tags.js';
+import { donutModel, formatSpan } from './src/timeshare.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -58,6 +59,7 @@ let detail = null; // { state: 'loading' | 'ok' | 'error', data?, error? } dos d
 let newSince = 0; // eventos com `at` maior que isso eram novos quando os detalhes foram abertos
 let listScroll = 0;
 let copied = false;
+let share = null; // gráfico de tempo por atribuído do ticket aberto: { id, state, entry?, error?, includeUnknown, fetchedAt }
 let openTagsId = null; // ticket com o painel de tags aberto (na lista ou nos detalhes)
 let tagDraft = { id: null, name: '', stage: false, error: '' }; // nova tag em digitação: sobrevive aos repintes
 
@@ -292,6 +294,97 @@ function renderList(cfg, state, user, all, visible) {
   ].filter(Boolean));
 }
 
+// ---------- tempo por atribuído (rosca) ----------
+// O GLPI só é consultado quando a pessoa clica em "Gerar" (ou "Atualizar"): 3 consultas por clique, nada é guardado e o
+// polling nunca faz isso. Depois de gerado, o gráfico se recalcula sozinho a cada minuto (o técnico atual segue contando
+// até agora) e ao marcar a opção de papel desconhecido, sem falar com o GLPI.
+const pctFmt = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
+const TONE = /^(\d|other|queue|unknown)$/;
+
+async function generateShare(id) {
+  share = { includeUnknown: false, ...(share?.id === id ? share : {}), id, state: 'loading', error: '', noRight: false };
+  renderDetail();
+  let res;
+  try {
+    res = await chrome.runtime.sendMessage({ type: 'ticket-time', id });
+  } catch {
+    res = { ok: false, error: 'Não foi possível falar com a extensão. Recarregue-a em chrome://extensions.' };
+  }
+  if (openId !== id || share?.id !== id) return; // a pessoa voltou ou abriu outro ticket enquanto carregava
+  share = res?.ok
+    ? { ...share, state: 'ok', entry: res.entry, fetchedAt: Date.now() }
+    : { ...share, state: 'error', error: res?.error ?? 'Erro desconhecido.', noRight: Boolean(res?.noRight) };
+  renderDetail();
+}
+
+const shareModel = () => donutModel(share.entry, { now: Date.now(), includeUnknown: share.includeUnknown });
+
+setInterval(() => {
+  if (openId != null && share?.id === openId && share.state === 'ok' && !shareModel().window.done) renderDetail();
+}, 60_000);
+
+function donutView(model) {
+  let acc = 0;
+  const stops = model.slices.map((sl) => {
+    const from = acc;
+    acc += sl.pct * 100;
+    return `var(--dn-${TONE.test(String(sl.tone)) ? sl.tone : 'other'}) ${from.toFixed(3)}% ${acc.toFixed(3)}%`;
+  });
+  const summary = model.slices.map((sl) => `${sl.label} ${pctFmt.format(sl.pct)}`).join('; ');
+  return h('div', { class: 'dn' },
+    h('div', { class: 'dn-chart', role: 'img', 'aria-label': `Distribuição do tempo do ticket: ${summary}` },
+      h('div', { class: 'dn-ring', style: `background:conic-gradient(${stops.join(',')})` }),
+      h('div', { class: 'dn-hole' }, h('strong', {}, formatSpan(model.window.totalMs)), h('span', {}, model.window.done ? 'até a solução' : 'até agora'))),
+    h('ul', { class: 'dn-legend' }, model.slices.map((sl) => h('li', {},
+      h('span', { class: `dn-sw dn-c-${TONE.test(String(sl.tone)) ? sl.tone : 'other'}`, 'aria-hidden': 'true' }),
+      h('span', { class: 'dn-name', title: sl.label }, sl.label),
+      h('span', { class: 'dn-pct' }, pctFmt.format(sl.pct)),
+      h('span', { class: 'dn-val' }, formatSpan(sl.ms), sl.open ? h('span', { class: 'dn-live' }, ' · em andamento') : null)))));
+}
+
+function shareSection(t) {
+  const s = share?.id === t.id ? share : null;
+  const body = [];
+  if (!s || s.state === 'idle') {
+    body.push(
+      h('p', { class: 'muted' }, 'Mostra quanto tempo o ticket ficou com cada pessoa ou equipe, desde a abertura. O GLPI só é consultado quando você clica.'),
+      h('button', { class: 'btn', type: 'button', 'data-focus': 'share-gen', onclick: () => generateShare(t.id) }, 'Gerar gráfico de tempo'));
+  } else if (s.state === 'loading') {
+    body.push(h('p', { class: 'muted' }, 'Consultando o histórico no GLPI…'));
+  } else if (s.state === 'error') {
+    body.push(h('div', { class: 'd-error' },
+      h('p', {}, s.error),
+      h('button', { class: 'btn', type: 'button', 'data-focus': 'share-gen', onclick: () => generateShare(t.id) }, 'Tentar de novo')));
+  } else {
+    const model = shareModel();
+    if (!model.slices.length) {
+      body.push(h('p', { class: 'muted' }, 'O ticket acabou de ser aberto: ainda não há tempo para mostrar.'));
+    } else {
+      body.push(donutView(model),
+        h('p', { class: 'dn-note' },
+          `Da abertura (${formatDateTime(model.window.from)}) até ${model.window.done ? `a solução (${formatDateTime(model.window.to)})` : 'agora'}. `,
+          'Dois atribuídos ao mesmo tempo dividem o tempo; pessoa vale mais que equipe.'));
+      if (model.uncertain) {
+        body.push(h('p', { class: 'dn-note warn', role: 'status' },
+          `${formatSpan(model.unknownMs)} é de quem já saiu do ticket: o GLPI não guarda o papel de quem saiu, então não dá para saber se era atribuído.`));
+      }
+    }
+    body.push(h('div', { class: 'dn-opts' },
+      model.uncertain || share.includeUnknown
+        ? h('label', {}, h('input', {
+          type: 'checkbox',
+          'data-focus': 'share-unknown',
+          checked: share.includeUnknown ? '' : null,
+          onchange: (ev) => { share = { ...share, includeUnknown: ev.target.checked }; renderDetail(); },
+        }), 'Contar quem saiu do ticket como atribuído')
+        : null,
+      h('span', {},
+        h('span', { class: 'muted' }, `Gerado às ${new Date(s.fetchedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · `),
+        h('button', { class: 'btn link', type: 'button', 'data-focus': 'share-gen', title: 'Consulta o GLPI de novo', onclick: () => generateShare(t.id) }, 'Atualizar'))));
+  }
+  return h('div', { class: 'd-section' }, h('h3', {}, 'Tempo por atribuído'), body);
+}
+
 // ---------- tela de detalhes ----------
 const infoRow = (label, value) => (value ? [h('dt', {}, label), h('dd', {}, value)] : []);
 
@@ -395,6 +488,7 @@ function renderDetail() {
           h('span', { class: 'what' }, describeEvent(e)),
           e.at > newSince ? chip('novo', 'accent') : null)))
       : null,
+    shareSection(t),
     h('div', { class: 'd-section' }, h('h3', {}, 'Conversa no GLPI'), liveSection()),
     detail?.state === 'ok'
       ? h('div', { class: 'd-actions' },
@@ -424,6 +518,7 @@ function openDetail(id) {
   newSince = data.user.readAt[id] ?? 0;
   openId = id;
   copied = false;
+  if (share?.id !== id) share = null; // o gráfico é de um ticket só; abrir outro começa do zero (nada foi consultado)
   markRead(id); // abrir os detalhes conta como ler o ticket
   paint();
   $('#detail .back')?.focus(); // o card que tinha o foco saiu da tela: sem isto o teclado se perde

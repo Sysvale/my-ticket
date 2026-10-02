@@ -14,6 +14,7 @@ const block = (selector) => {
   return css.slice(css.indexOf('{', i) + 1, css.indexOf('}', i));
 };
 
+const light = vars(block(':root'));
 const bySystem = vars(block(':root:not([data-theme="light"])'));
 const forced = vars(block(':root[data-theme="dark"]'));
 const neon = vars(block(':root[data-neon]'));
@@ -59,4 +60,17 @@ test('o neon não troca o claro: só existe sob data-neon', () => {
   const rules = [...css.slice(start, end < 0 ? undefined : end).matchAll(/^([^\n{]+)\{/gm)].map((m) => m[1].trim()).filter((r) => r && !r.startsWith('/*') && !r.startsWith('@'));
   assert.ok(rules.length > 10);
   for (const r of rules) assert.match(r, /\[data-neon\]/, r);
+});
+
+test('as cores da rosca (tempo por atribuído) se distinguem do fundo (≥ 3:1) em cada tema', () => {
+  const themes = { claro: light, escuro: bySystem, neon: { ...bySystem, ...neon } };
+  const names = Object.keys(light).filter((k) => k.startsWith('--dn-'));
+  assert.equal(names.length, 10); // 7 pessoas/equipes + outros + fila + desconhecido
+  for (const [theme, v] of Object.entries(themes)) {
+    for (const n of names) {
+      for (const bg of ['--bg', '--surface']) {
+        assert.ok(contrast(v[n], v[bg]) >= 3, `${theme} ${n} sobre ${bg}: ${contrast(v[n], v[bg]).toFixed(2)}`);
+      }
+    }
+  }
 });

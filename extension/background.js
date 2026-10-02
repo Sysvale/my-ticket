@@ -4,6 +4,7 @@ import { createClient, GlpiError } from './src/glpi.js';
 import { discover, runPoll, scrubState } from './src/poller.js';
 import { sampleNotifications } from './src/samples.js';
 import { fetchTicketDetails } from './src/details.js';
+import { buildEntry as buildTimeEntry } from './src/timeshare.js';
 import { normalizeSoundConfig, playFile } from './src/sounds.js';
 import { normalizeAttention } from './src/attention.js';
 import { isFirefox, notificationOptionsFor } from './src/compat.js';
@@ -241,6 +242,29 @@ async function ticketDetails(id) {
   }
 }
 
+// Dados do gráfico de tempo por atribuído: SÓ quando a pessoa clica em "Gerar" nos detalhes do ticket (3 consultas ao
+// GLPI: o ticket com o log e os vínculos de pessoas e de equipes). Nada é guardado e o polling nunca faz isso. Pedidos
+// repetidos do mesmo ticket enquanto um está em andamento compartilham a mesma consulta.
+const timeInFlight = new Map();
+function ticketTime(id) {
+  if (!timeInFlight.has(id)) {
+    timeInFlight.set(id, readTicketTime(id).finally(() => timeInFlight.delete(id)));
+  }
+  return timeInFlight.get(id);
+}
+async function readTicketTime(id) {
+  const cfg = await getConfig();
+  if (!isConfigured(cfg)) return { ok: false, error: 'Configure a conexão com o GLPI nas Opções.' };
+  try {
+    const api = createClient({ ...cfg, sessionStore });
+    const [full, actorsNow] = await Promise.all([api.ticketWithLogs(id), api.ticketActors(id)]);
+    if (full.logs === null) return { ok: false, noRight: true, error: 'O seu perfil no GLPI não tem o direito de ler o histórico dos tickets (“Logs”).' };
+    return { ok: true, entry: buildTimeEntry({ id, ticket: full.ticket, logs: full.logs, actorsNow, now: Date.now(), hideContent: cfg.hideContent }) };
+  } catch (e) {
+    return { ok: false, error: friendly(e) };
+  }
+}
+
 async function testConnection(input) {
   const cfg = mergeConfig({ ...input, baseUrl: normalizeBaseUrl(input.baseUrl) });
   if (!isConfigured(cfg)) return { ok: false, error: 'Preencha a URL e os dois tokens.' };
@@ -369,6 +393,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === 'ticket-details') {
     ticketDetails(Number(msg.id)).then(sendResponse);
+    return true;
+  }
+  if (msg?.type === 'ticket-time') {
+    ticketTime(Number(msg.id)).then(sendResponse);
     return true;
   }
   if (msg?.type === 'play-sound') {

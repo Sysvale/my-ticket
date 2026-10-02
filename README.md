@@ -46,6 +46,13 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   avisar, sem apagar nada. Enquanto pausado, o alarme é cancelado, nem o “Atualizar agora” busca, o ícone mostra “II” e o
   popup exibe um aviso com **Retomar**. Ao retomar, a extensão busca na hora e avisa o que aconteceu nesse meio-tempo (mais
   de 5 tickets viram um aviso-resumo). Ver os detalhes de um ticket continua funcionando, porque é você pedindo.
+- **Tempo por atribuído:** nos detalhes do ticket, **Gerar gráfico de tempo** desenha uma rosca com 100% do tempo do
+  ticket (da abertura até a solução, ou até agora se ainda está aberto), dividido por pessoa ou equipe atribuída:
+  passagens da mesma pessoa se somam, dois atribuídos ao mesmo tempo dividem em partes iguais, pessoa vale mais que
+  equipe e o período sem ninguém aparece como **Sem atribuição / Fila**. **O GLPI só é consultado quando você clica**
+  (3 consultas por geração; nada fica guardado e a verificação periódica nunca lê o histórico). Exige o direito
+  “Logs” no perfil do GLPI. O GLPI não guarda o papel de quem já saiu do ticket, então esse tempo aparece como **Papel
+  desconhecido**, com uma opção para contá-lo como atribuição. Com “Ocultar conteúdo”, os nomes não aparecem.
 - **Tags personalizadas:** o botão **Tags** em cada card (e nos detalhes) marca **etapas** (só uma por ticket, com
   “desde quando”: *Em andamento*, *PR em review*, *Em homologação/suporte*, *Aguardando retorno*) e **etiquetas**
   (várias: *Cliente avisado*), e dá para criar as suas ali mesmo. Aparecem como chips no card, entram no filtro “Tag”
@@ -207,7 +214,7 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 - `chrome.alarms` acorda o service worker (no Firefox, a página de eventos) a cada N minutos (1, 2, 5 ou 10).
 - Um `search/Ticket` por papel (campos 5, 66 e 4 = seu id, status "não resolvido") mais um por
   lote de tickets manuais. O `date_mod` do search decide quais tickets precisam ser relidos.
-- Só os tickets alterados chamam `Ticket/:id`, `ITILFollowup` e `ITILSolution`. Uma varredura
+- Só os tickets alterados chamam `Ticket/:id`, `ITILFollowup` e `ITILSolution`. O histórico (`Ticket/:id?with_logs=true`, `Ticket_User`, `Group_Ticket`) só é lido no clique de “Gerar gráfico de tempo”. Uma varredura
   completa roda a cada 15 min como rede de segurança.
 - A primeira vez que um ticket é visto é um baseline silencioso (não avisa o histórico).
 - O Status extra (plugin Fields, search option `90001`) vem do próprio search e é comparado a
@@ -238,6 +245,7 @@ extension/
   sounds/            avisos sonoros (.wav), gerados por scripts/make-sounds.py
   guide.*            Guia de notificações (verificação ao vivo, exemplos, passo a passo)
   src/filters.js     filtros do popup (lógica pura)
+  src/timeshare.js   tempo por atribuído / rosca (lógica pura: log do GLPI → fatias que somam 100%)
   src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)
   src/picker-ui.js   o DOM desse seletor (botão, busca, lista, teclado e ARIA)
   src/details.js     detalhes ao vivo de um ticket (tela aberta do popup)

@@ -302,6 +302,112 @@ test('ticket-details respeita ocultar conteúdo e traduz falhas do GLPI', async 
   } finally { glpi.restore(); }
 });
 
+// ---------- gráfico de tempo por atribuído (só quando a pessoa clica) ----------
+// GLPI simulado com o log: Analista entra às 10:00 e sai às 11:00; João entra às 11:00 e continua.
+function fakeGlpiLogs({ rights = true } = {}) {
+  const paths = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = url.replace('https://glpi.test/apirest.php/', '');
+    paths.push(path);
+    if (path === 'initSession') return jsonRes(200, { session_token: 'S' });
+    if (path.startsWith('search/Ticket')) return jsonRes(200, { totalcount: 0, count: 0 });
+    if (path.startsWith('Ticket/159919?with_logs=true')) {
+      const row = (id, at, action, name, uid) => ({ id, itemtype: 'Ticket', items_id: 159919, itemtype_link: 'User', linked_action: action, date_mod: at, id_search_option: 0, old_value: action === 16 ? `${name} (${uid})` : '', new_value: action === 15 ? `${name} (${uid})` : '' });
+      const _logs = rights
+        ? { 1: row('1', '2026-09-29 10:00:00', 15, 'Analista A', 20), 2: row('2', '2026-09-29 11:00:00', 16, 'Analista A', 20), 3: row('3', '2026-09-29 11:00:00', 15, 'João Reis', 21) }
+        : { error: 401, message: 'sem permissão' };
+      return jsonRes(200, { id: 159919, name: 'Relatório mensal', status: 2, date: '2026-09-29 10:00:00', date_mod: '2026-09-29 12:00:00', _logs });
+    }
+    if (path.startsWith('Ticket/159919/Ticket_User')) return jsonRes(200, [{ users_id: 21, type: 2 }, { users_id: 5, type: 1 }]);
+    if (path.startsWith('Ticket/159919/Group_Ticket')) return jsonRes(200, []);
+    return jsonRes(404, ['ERROR_ITEM_NOT_FOUND', 'não encontrado']);
+  };
+  return { paths, restore: () => { globalThis.fetch = original; } };
+}
+const logPaths = (paths) => paths.filter((p) => /with_logs|Ticket_User|Group_Ticket/.test(p));
+
+test('o polling nunca consulta o histórico dos tickets (só o clique em “Gerar” consulta)', async () => {
+  reset();
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+  stored.state = { me: { id: 7 }, users: {}, tickets: {} };
+  const glpi = fakeGlpiLogs();
+  try {
+    await send({ type: 'poll-now' });
+    assert.ok(glpi.paths.length > 0); // consultou o GLPI...
+    assert.deepEqual(logPaths(glpi.paths), []); // ...mas nada de log nem de vínculos de pessoas
+  } finally { glpi.restore(); }
+});
+
+test('ticket-time sem configuração devolve um erro claro e não chama o GLPI', async () => {
+  reset();
+  delete stored.config;
+  const glpi = fakeGlpiLogs();
+  try {
+    const r = await send({ type: 'ticket-time', id: 159919 });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /Configure a conexão/);
+    assert.equal(glpi.paths.length, 0);
+  } finally { glpi.restore(); }
+});
+
+test('ticket-time faz exatamente 3 consultas (ticket com log, pessoas e equipes), devolve o resumo e não grava nada', async () => {
+  reset();
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+  const glpi = fakeGlpiLogs();
+  try {
+    const r = await send({ type: 'ticket-time', id: 159919 });
+    assert.equal(r.ok, true);
+    assert.deepEqual(logPaths(glpi.paths).sort(), [
+      'Ticket/159919/Group_Ticket?range=0-199&get_hateoas=false',
+      'Ticket/159919/Ticket_User?range=0-199&get_hateoas=false',
+      'Ticket/159919?with_logs=true&get_hateoas=false',
+    ]);
+    assert.equal(glpi.paths.filter((p) => p !== 'initSession').length, 3);
+    const joao = r.entry.actors.find((a) => a.id === 21);
+    assert.equal(joao.name, 'João Reis');
+    assert.deepEqual(joao.segs.map((s) => s[2]), [2]); // atribuído agora: o papel vem de Ticket_User
+    assert.deepEqual(r.entry.actors.find((a) => a.id === 20).segs.map((s) => s[2]), [0]); // Analista saiu: papel desconhecido
+    assert.equal(calls.storageSet.length, 0); // nada vai para o storage
+  } finally { glpi.restore(); }
+});
+
+test('ticket-time: vários pedidos do mesmo ticket ao mesmo tempo compartilham a mesma consulta', async () => {
+  reset();
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+  const glpi = fakeGlpiLogs();
+  try {
+    // direto no listener (o `send` liga o relógio simulado e não admite dois pedidos ao mesmo tempo)
+    const direct = () => new Promise((resolve) => { L.onMessage({ type: 'ticket-time', id: 159919 }, {}, resolve); });
+    const [a, b, c] = await Promise.all([direct(), direct(), direct()]);
+    assert.ok(a.ok && b.ok && c.ok);
+    assert.equal(logPaths(glpi.paths).length, 3); // e não 9
+    const again = await send({ type: 'ticket-time', id: 159919 }); // pedido novo, depois: consulta de novo (nada fica em cache)
+    assert.equal(again.ok, true);
+    assert.equal(logPaths(glpi.paths).length, 6);
+  } finally { glpi.restore(); }
+});
+
+test('ticket-time: perfil sem o direito “Logs” vira um aviso claro; ocultar conteúdo tira os nomes', async () => {
+  reset();
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+  const denied = fakeGlpiLogs({ rights: false });
+  try {
+    const r = await send({ type: 'ticket-time', id: 159919 });
+    assert.equal(r.ok, false);
+    assert.equal(r.noRight, true);
+    assert.match(r.error, /Logs/);
+  } finally { denied.restore(); }
+
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b', hideContent: true };
+  const glpi = fakeGlpiLogs();
+  try {
+    const r = await send({ type: 'ticket-time', id: 159919 });
+    assert.equal(r.ok, true);
+    assert.doesNotMatch(JSON.stringify(r), /Analista|João|Analista|Reis/);
+  } finally { glpi.restore(); }
+});
+
 // ---------- chamar a atenção sem depender do banner do Windows ----------
 const ATTN_OFF = { flash: false, sticky: false };
 
