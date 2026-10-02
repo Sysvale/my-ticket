@@ -18,6 +18,11 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
 - Badge no ícone com a quantidade de tickets com novidade; popup com cards (status, prioridade,
   Status extra, entidade, último evento).
 - Abrir um ticket do GLPI em qualquer aba marca as novidades dele como lidas.
+- **Barra de endereços:** digite `ticket` + espaço + o número (`ticket 148270`), um `#número` ou o link do ticket e
+  aperte Enter para abrir o ticket no GLPI (Alt+Enter abre numa aba nova). Se o ticket já está aberto numa aba, ela só
+  ganha o foco. Enquanto digita, aparecem sugestões do seu radar por número ou parte do título (sem diferenciar
+  acentos), tiradas do cache local: **nenhuma consulta ao GLPI**. Com “Ocultar conteúdo” as sugestões mostram só
+  `Ticket #N`. Texto livre só abre se casar com um único ticket; sem o GLPI configurado, abre as Opções.
 - **Filtros no popup:** busca por número, título ou entidade (sem diferenciar acentos), atalho
   **Novidades** (só não lidos) e painel **Filtros** com status, papel, entidade, Status extra,
   prioridade e tag. Os filtros combinam entre si e ficam salvos entre uma abertura e outra do popup;
@@ -245,6 +250,7 @@ extension/
   sounds/            avisos sonoros (.wav), gerados por scripts/make-sounds.py
   guide.*            Guia de notificações (verificação ao vivo, exemplos, passo a passo)
   src/filters.js     filtros do popup (lógica pura)
+  src/omnibox.js     sugestões e leitura do que se digita na barra de endereços (lógica pura)
   src/timeshare.js   tempo por atribuído / rosca (lógica pura: log do GLPI → fatias que somam 100%)
   src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)
   src/picker-ui.js   o DOM desse seletor (botão, busca, lista, teclado e ARIA)
@@ -351,6 +357,5 @@ Estas dependem da instância e aparecem na resposta de **Testar conexão**:
 
 - v0.2: lista de foco e estados pessoais ("trabalhando", "aguardando cliente"), notas, snooze,
   side panel, horário silencioso, senha-mestre opcional para os tokens.
-- v0.3: SLA/contagem regressiva, linha do tempo do ticket, omnibox (`g 159919`),
-  `#123` vira link com hover card.
+- v0.3: SLA/contagem regressiva, linha do tempo do ticket, `#123` vira link com hover card.
 - Depois: integração com Trelássio/PRs e ações de escrita (com confirmação).

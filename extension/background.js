@@ -7,7 +7,8 @@ import { fetchTicketDetails } from './src/details.js';
 import { buildEntry as buildTimeEntry } from './src/timeshare.js';
 import { normalizeSoundConfig, playFile } from './src/sounds.js';
 import { normalizeAttention } from './src/attention.js';
-import { isFirefox, notificationOptionsFor } from './src/compat.js';
+import { isFirefox, notificationOptionsFor, omniboxText } from './src/compat.js';
+import { resolveInput, suggestionsFor } from './src/omnibox.js';
 import { failedLabel, isUnderBase, normalizeBaseUrl, parseTicketId, ticketUrl } from './src/format.js';
 import {
   getConfig,
@@ -209,7 +210,9 @@ async function demoNotifications(hideContent, sound, attention) {
   return { count: samples.length, permission };
 }
 
-async function openTicket(id) {
+// `disposition` vem da barra de endereços: 'currentTab' abre na aba atual, 'newBackgroundTab' abre sem trocar de aba e o
+// resto (inclusive o padrão) abre numa aba nova. Um ticket que já está aberto numa aba só ganha o foco.
+async function openTicket(id, disposition = 'newForegroundTab') {
   const cfg = await getConfig();
   let existing;
   try {
@@ -221,8 +224,10 @@ async function openTicket(id) {
   if (existing) {
     await chrome.tabs.update(existing.id, { active: true });
     await chrome.windows.update(existing.windowId, { focused: true });
+  } else if (disposition === 'currentTab') {
+    await chrome.tabs.update({ url: ticketUrl(cfg.baseUrl, id) });
   } else {
-    await chrome.tabs.create({ url: ticketUrl(cfg.baseUrl, id) });
+    await chrome.tabs.create({ url: ticketUrl(cfg.baseUrl, id), ...(disposition === 'newBackgroundTab' ? { active: false } : {}) });
   }
   await markRead(id);
 }
@@ -413,6 +418,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   return false;
 });
+
+// ---------- barra de endereços: "ticket 148270" ----------
+// Só lê o cache local (nenhuma consulta ao GLPI). Com "ocultar conteúdo" as sugestões mostram só o número do ticket.
+async function omniboxSuggest(text, suggest) {
+  const firefox = isFirefox();
+  const [cfg, state] = await Promise.all([getConfig(), getState()]);
+  const id = parseTicketId(text);
+  chrome.omnibox.setDefaultSuggestion({
+    description: omniboxText(id ? `Abrir o ticket #${id} no GLPI` : 'Digite o número do ticket, um link ou parte do título', { firefox }),
+  });
+  suggest(suggestionsFor(text, state.tickets, { hideContent: cfg.hideContent })
+    .map((s) => ({ content: s.content, description: omniboxText(s.label, { firefox }) })));
+}
+
+async function omniboxEnter(text, disposition) {
+  const [cfg, state] = await Promise.all([getConfig(), getState()]);
+  if (!cfg.baseUrl) {
+    chrome.runtime.openOptionsPage(); // sem GLPI configurado não há para onde ir
+    return;
+  }
+  const id = resolveInput(text, state.tickets, { hideContent: cfg.hideContent });
+  if (id) await openTicket(id, disposition);
+}
+
+// Os ouvintes são registrados na carga do service worker (MV3). `chrome.omnibox?.` por convenção do projeto: API opcional.
+chrome.omnibox?.onInputChanged.addListener((text, suggest) => omniboxSuggest(text, suggest).catch(() => suggest([])));
+chrome.omnibox?.onInputEntered.addListener((text, disposition) => omniboxEnter(text, disposition).catch(() => {}));
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureAlarm(true);

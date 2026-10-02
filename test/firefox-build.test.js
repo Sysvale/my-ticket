@@ -39,7 +39,7 @@ test('Firefox: mesmas permissões do Chrome, menos o offscreen (que o Firefox n�
 test('Firefox: sem chaves só do Chrome (minimum_chrome_version) e o resto do manifest-base fica igual', () => {
   const ff = toFirefoxManifest(chrome);
   assert.equal(ff.minimum_chrome_version, undefined);
-  for (const key of ['manifest_version', 'name', 'version', 'description', 'action', 'options_ui', 'icons', 'optional_host_permissions']) {
+  for (const key of ['manifest_version', 'name', 'version', 'description', 'action', 'options_ui', 'icons', 'optional_host_permissions', 'omnibox']) {
     assert.deepEqual(ff[key], chrome[key], key);
   }
   assert.deepEqual(Object.keys(ff).filter((k) => !(k in chrome)).sort(), ['browser_specific_settings']);
