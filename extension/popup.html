@@ -55,18 +55,14 @@
         <label><span class="sr">Papel</span>
           <select id="f-role"></select>
         </label>
-        <label><span class="sr">Entidade</span>
-          <select id="f-entity"></select>
-        </label>
-        <label><span class="sr">Status extra</span>
-          <select id="f-extra"></select>
-        </label>
+        <div id="f-entity"></div>
+        <div id="f-extra"></div>
         <label><span class="sr">Prioridade</span>
           <select id="f-priority"></select>
         </label>
-        <label><span class="sr">Tag</span>
-          <select id="f-tag"></select>
-        </label>
+        <div id="f-tag"></div>
+        <!-- Entidade, Status extra e Tag são seletores com busca (src/picker-ui.js): a lista aberta aparece aqui -->
+        <div id="pk-slot" class="pk-slot"></div>
       </div>
       <div id="filter-summary" class="summary" hidden>
         <span id="summary-text"></span>

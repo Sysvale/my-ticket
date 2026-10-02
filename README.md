@@ -19,9 +19,12 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   Status extra, entidade, último evento).
 - Abrir um ticket do GLPI em qualquer aba marca as novidades dele como lidas.
 - **Filtros no popup:** busca por número, título ou entidade (sem diferenciar acentos), atalho
-  **Novidades** (só não lidos) e painel **Filtros** com status, papel, entidade, Status extra e
-  prioridade. Os filtros combinam entre si e ficam salvos entre uma abertura e outra do popup;
-  uma linha "Mostrando X de Y" indica quando há filtro ligado.
+  **Novidades** (só não lidos) e painel **Filtros** com status, papel, entidade, Status extra,
+  prioridade e tag. Os filtros combinam entre si e ficam salvos entre uma abertura e outra do popup;
+  uma linha "Mostrando X de Y" indica quando há filtro ligado. **Entidade**, **Status extra** e **Tag**
+  têm um campo de busca dentro da lista (sem diferenciar acentos), para achar a opção quando são muitas;
+  **Tag** aceita **várias escolhas** ao mesmo tempo (aparece o ticket que tiver *qualquer uma* delas, e “Sem tag”
+  pode entrar na mistura). Funciona só pelo teclado: ↓/↑ andam pela lista, Enter marca, Esc fecha.
 - **Aviso sonoro:** três sons para escolher (suave, duplo bip, alerta) e volume ajustável, com botão
   **Ouvir**. Toca uma vez por verificação, mesmo com vários tickets; com o som ligado, o som padrão do
   Windows para os avisos da extensão fica desativado, para não tocar dois. Como o service worker do MV3
@@ -43,7 +46,7 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
 - **Tags personalizadas:** o botão **Tags** em cada card (e nos detalhes) marca **etapas** (só uma por ticket, com
   “desde quando”: *Em andamento*, *PR em review*, *Em homologação/suporte*, *Aguardando retorno*) e **etiquetas**
   (várias: *Cliente avisado*), e dá para criar as suas ali mesmo. Aparecem como chips no card, entram no filtro “Tag”
-  (inclusive “Sem tag”) e na busca pelo nome. Em Opções → aba **Tags** dá para renomear, recolorir (uma cor da paleta ou **qualquer hexadecimal** `#rrggbb`, digitado ou pelo seletor de cores; o texto é clareado/escurecido sozinho para continuar legível nos temas claro e escuro, e um hexadecimal inválido é recusado com aviso), mudar o tipo,
+  (várias de uma vez e também “Sem tag”) e na busca pelo nome. Em Opções → aba **Tags** dá para renomear, recolorir (uma cor da paleta ou **qualquer hexadecimal** `#rrggbb`, digitado ou pelo seletor de cores; o texto é clareado/escurecido sozinho para continuar legível nos temas claro e escuro, e um hexadecimal inválido é recusado com aviso), mudar o tipo,
   reordenar, apagar, restaurar os padrões e **exportar/importar** um arquivo JSON. Ficam **só neste navegador**
   (`chrome.storage.local`): não vão ao GLPI, não sincronizam com a conta Google e ninguém mais as vê. Veja
   [quando elas podem ser perdidas](#quando-as-tags-podem-ser-perdidas).
@@ -229,6 +232,8 @@ extension/
   sounds/            avisos sonoros (.wav), gerados por scripts/make-sounds.py
   guide.*            Guia de notificações (verificação ao vivo, exemplos, passo a passo)
   src/filters.js     filtros do popup (lógica pura)
+  src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)
+  src/picker-ui.js   o DOM desse seletor (botão, busca, lista, teclado e ARIA)
   src/details.js     detalhes ao vivo de um ticket (tela aberta do popup)
   src/diagnostics.js verificações do Guia
   src/attention.js   piscar na barra de tarefas / aviso fixo
