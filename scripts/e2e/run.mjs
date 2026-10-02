@@ -76,6 +76,22 @@ async function attach(wsUrl) {
     async select(selector, value) {
       await s.eval(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
     },
+    // Seletor com busca (Entidade, Status extra, Tag): abre se estiver fechado, busca (opcional) e clica na opção pelo texto.
+    // Na escolha única a lista fecha sozinha; na múltipla fica aberta.
+    async pick(field, label, search = null) {
+      await s.eval(`(() => {
+        const btn = document.querySelector(${JSON.stringify(field)}).querySelector('.pk-btn');
+        if (btn.getAttribute('aria-expanded') !== 'true') btn.click();
+        const input = document.querySelector('#pk-slot .pk-search');
+        if (${JSON.stringify(search)} !== null) { input.value = ${JSON.stringify(search)}; input.dispatchEvent(new Event('input', { bubbles: true })); }
+        const opt = [...document.querySelectorAll('#pk-slot .pk-opt')].find((o) => o.querySelector('.pk-label').textContent === ${JSON.stringify(label)});
+        if (!opt) throw new Error('opção não encontrada: ' + ${JSON.stringify(label)});
+        opt.click();
+        return true;
+      })()`);
+    },
+    // tecla no campo de busca do seletor aberto
+    key: (key) => s.eval(`document.querySelector('#pk-slot .pk-search').dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true }))`),
     text: (selector) => s.eval(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`),
   };
   return s;
@@ -295,16 +311,21 @@ try {
     S.check('Resumo “Mostrando 1 de 4”', (await popup.text('#summary-text')) === 'Mostrando 1 de 4', await popup.text('#summary-text'));
     await popup.click("document.getElementById('f-clear')");
     await popup.click("document.getElementById('filters-toggle')");
-    await popup.select('#f-entity', 'Município Gama�');
+    // a busca do seletor ignora acento: "Município Gama" acha "Município Gama�"
+    await popup.eval("document.querySelector('#f-entity .pk-btn').click()");
+    await popup.type('#pk-slot .pk-search', 'Município Gama');
+    S.check('Busca dentro do seletor de entidade ignora acento e mostra só o que casa',
+      (await popup.eval("[...document.querySelectorAll('#pk-slot .pk-opt')].map((o) => o.textContent).join()")) === 'Município Gama�');
+    await S.shot(popup, 'Seletor de entidade aberto, buscando “Município Gama”', "document.getElementById('filters-panel')");
+    await popup.pick('#f-entity', 'Município Gama�');
     await popup.waitFor("document.querySelectorAll('.card').length === 1", 'filtro por entidade');
+    S.check('Escolher a entidade fecha a lista e o botão mostra o nome', (await popup.eval("document.getElementById('pk-slot').children.length")) === 0 && (await popup.text('#f-entity .pk-text')) === 'Município Gama�');
     await S.shot(popup, 'Painel de filtros aberto, entidade = Município Gama�: só o #159885', "document.getElementById('f-entity')");
     S.check('Filtro por entidade', (await popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()")) === '#159885');
     S.check('Contador de filtros no botão', (await popup.text('#filters-count')) === '1');
     // o popup fecha ao menor clique fora: o filtro escolhido precisa ser gravado na hora, sem esperar o atraso de 200 ms
+    await popup.pick('#f-entity', 'Município Alfa');
     const flushed = await popup.eval(`(async () => {
-      const el = document.getElementById('f-entity');
-      el.value = 'Município Alfa';
-      el.dispatchEvent(new Event('change', { bubbles: true }));
       window.dispatchEvent(new Event('pagehide'));
       const { ui } = await chrome.storage.local.get('ui');
       return ui?.filters?.entity;
@@ -613,12 +634,57 @@ try {
     // filtro e busca
     await popup.type('.tagpanel .tp-name', '');
     await popup.click("document.getElementById('filters-toggle')");
-    await popup.select('#f-tag', 'avisado');
+    const shownIds = () => popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()");
+    const slotOptions = () => popup.eval("[...document.querySelectorAll('#pk-slot .pk-opt .pk-label')].map((o) => o.textContent)");
+    await popup.pick('#f-tag', 'Cliente avisado');
     await popup.waitFor("document.querySelectorAll('.card').length === 1", 'filtro por tag');
-    S.check('Filtro por tag mostra só o ticket marcado', (await popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()")) === '#159919');
-    await popup.select('#f-tag', '__none__');
+    S.check('Filtro por tag mostra só o ticket marcado', (await shownIds()) === '#159919');
+    S.check('Na seleção múltipla a lista continua aberta depois de marcar', (await popup.eval("document.querySelectorAll('#pk-slot .pk-opt[aria-selected=true]').length")) === 1);
+    S.check('O botão mostra o nome da única tag escolhida', (await popup.text('#f-tag .pk-text')) === 'Cliente avisado');
+
+    // várias tags: “Sem tag” junto de uma tag soma os dois grupos (aqui, os 4 tickets)
+    await popup.pick('#f-tag', 'Sem tag');
+    await popup.waitFor("document.querySelectorAll('.card').length === 4", 'duas tags escolhidas');
+    S.check('“Sem tag” + uma tag mostra os tickets sem tag e o marcado', (await popup.eval("document.querySelectorAll('.card').length")) === 4);
+    S.check('O botão mostra a contagem quando há várias (e o tooltip diz quais)', (await popup.text('#f-tag .pk-text')) === '2 tags' && (await popup.eval("document.querySelector('#f-tag .pk-btn').title")) === 'Sem tag, Cliente avisado');
+    S.check('Várias tags contam como um filtro só no botão', (await popup.text('#filters-count')) === '1');
+    S.check('As escolhas ficam gravadas como lista', await popup.eval(`(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      const { ui } = await chrome.storage.local.get('ui');
+      return Array.isArray(ui?.filters?.tag) && ui.filters.tag.length === 2;
+    })()`));
+    await S.shot(popup, 'Tag com seleção múltipla: duas escolhidas, lista aberta com caixas marcadas', "document.getElementById('filters-panel')");
+
+    // busca dentro da lista
+    await popup.type('#pk-slot .pk-search', 'homolog');
+    S.check('Buscar “homolog” deixa só a tag “Em homologação/suporte”', JSON.stringify(await slotOptions()) === JSON.stringify(['Em homologação/suporte']));
+    await popup.type('#pk-slot .pk-search', 'zzz');
+    S.check('Sem resultado: lista vazia e aviso na tela', (await slotOptions()).length === 0 && (await popup.eval("!document.querySelector('#pk-slot .pk-empty').hidden")));
+    await S.shot(popup, 'Busca sem resultado dentro do seletor de tag', "document.getElementById('filters-panel')");
+    await popup.type('#pk-slot .pk-search', '');
+    S.check('Apagar a busca traz todas as opções de volta', (await slotOptions()).length === (await popup.eval("document.querySelectorAll('#pk-slot .pk-opt').length")) && (await slotOptions()).length >= 3);
+
+    // teclado: digitar, Enter marca a primeira que casa; Esc fecha só a lista (o painel de tags do card continua)
+    await popup.type('#pk-slot .pk-search', 'dev');
+    await popup.key('Enter');
+    await popup.waitFor("document.querySelector('#f-tag .pk-text').textContent === '3 tags'", 'Enter marcou a tag');
+    S.check('Enter marca a primeira opção que casa com a busca', (await popup.eval("document.querySelector('#pk-slot .pk-opt[aria-selected=true] .pk-label') && [...document.querySelectorAll('#pk-slot .pk-opt[aria-selected=true] .pk-label')].some((o) => o.textContent === 'Dev review')")));
+    await popup.key('Escape');
+    S.check('Esc fecha a lista e devolve o foco ao botão', (await popup.eval("document.getElementById('pk-slot').children.length")) === 0 && (await popup.eval("document.activeElement === document.querySelector('#f-tag .pk-btn')")));
+    S.check('…sem fechar o painel de tags do card', await popup.eval("document.querySelector('.tagpanel') !== null"));
+
+    // desmarcar e limpar a seleção
+    await popup.pick('#f-tag', 'Dev review');
+    await popup.waitFor("document.querySelector('#f-tag .pk-text').textContent === '2 tags'", 'tag desmarcada');
+    await popup.eval("[...document.querySelectorAll('#pk-slot .pk-foot button')].find((b) => b.textContent === 'Limpar seleção').click()");
+    await popup.waitFor("document.querySelector('#f-tag .pk-text').textContent === 'Qualquer tag'", 'seleção limpa');
+    S.check('“Limpar seleção” desmarca tudo e mostra todos os tickets', (await popup.eval("document.querySelectorAll('.card').length")) === 4 && (await popup.eval("document.getElementById('filters-count').hidden")));
+    await popup.eval("document.querySelector('#pk-slot .pk-search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))");
+
+    await popup.pick('#f-tag', 'Sem tag');
     await popup.waitFor("document.querySelectorAll('.card').length === 3", 'filtro sem tag');
-    S.check('“Sem tag” mostra os outros três', !(await popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()")).includes('159919'));
+    S.check('“Sem tag” mostra os outros três', !(await shownIds()).includes('159919'));
+    await popup.key('Escape');
     await popup.click("document.getElementById('f-clear')");
     await popup.click("document.getElementById('filters-toggle')");
     await popup.type('#q', 'dev review');

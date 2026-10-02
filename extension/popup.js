@@ -36,6 +36,7 @@ import {
   sanitizeFilters,
 } from './src/filters.js';
 import { h, tagColor } from './src/dom.js';
+import { closePickers, createPicker } from './src/picker-ui.js';
 import { LIMITS, createTag, defsOf, tagsOfTicket, toggleTag } from './src/tags.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -471,10 +472,32 @@ function setSelect(id, options, value, visible = true) {
   if (select.value !== value) select.value = value;
 }
 
+// Entidade, Status extra e Tag podem ter listas longas: ficam num seletor com busca (src/picker-ui.js). A Tag aceita
+// várias escolhas. Status, papel e prioridade têm poucas opções fixas e seguem como <select>.
+const slot = $('#pk-slot');
+const pickers = {
+  entity: createPicker({
+    slot, host: $('#f-entity'), id: 'entity', label: 'Entidade', all: 'Todas as entidades',
+    searchLabel: 'Buscar entidade', emptyLabel: 'Nenhuma entidade encontrada',
+    onChange: (entity) => setFilter({ entity }),
+  }),
+  extra: createPicker({
+    slot, host: $('#f-extra'), id: 'extra', label: 'Status extra', all: 'Qualquer Status extra',
+    searchLabel: 'Buscar Status extra', emptyLabel: 'Nenhum Status extra encontrado',
+    onChange: (extra) => setFilter({ extra }),
+  }),
+  tag: createPicker({
+    slot, host: $('#f-tag'), id: 'tag', label: 'Tag', multiple: true, all: 'Qualquer tag',
+    many: (n) => `${n} tags`, searchLabel: 'Buscar tag', emptyLabel: 'Nenhuma tag encontrada',
+    onChange: (tag) => setFilter({ tag }),
+  }),
+};
+
 function renderControls(cfg, tickets, options, visible, isUnread) {
   const f = ui.filters;
   const show = isConfigured(cfg) && tickets.length > 0;
   $('#filters').hidden = !show;
+  if (!show || !ui.panelOpen) closePickers(); // a lista aberta de um seletor sumiria junto com o painel
   if (!show) return;
 
   // não mexe no campo enquanto a pessoa digita nele
@@ -494,22 +517,34 @@ function renderControls(cfg, tickets, options, visible, isUnread) {
   setSelect('f-status', STATUS_OPTIONS, f.status);
   setSelect('f-role', ROLE_OPTIONS, f.role);
   setSelect('f-priority', PRIORITY_OPTIONS, f.priority);
-  setSelect('f-entity', [
-    { value: 'all', label: 'Todas as entidades' },
-    ...options.entities.map((e) => ({ value: e, label: e })),
-  ], f.entity, options.entities.length >= 2);
-  setSelect('f-extra', [
-    { value: 'all', label: 'Qualquer Status extra' },
-    ...options.extra.map((v) => ({ value: v, label: v })),
-    ...(options.hasNoExtra ? [{ value: NO_EXTRA, label: 'Sem Status extra' }] : []),
-  ], f.extra, options.extra.length > 0);
+  pickers.entity.update({
+    options: [{ value: 'all', label: 'Todas as entidades', all: true }, ...options.entities.map((e) => ({ value: e, label: e }))],
+    value: f.entity,
+    visible: options.entities.length >= 2,
+  });
+  pickers.extra.update({
+    options: [
+      { value: 'all', label: 'Qualquer Status extra', all: true },
+      ...options.extra.map((v) => ({ value: v, label: v })),
+      ...(options.hasNoExtra ? [{ value: NO_EXTRA, label: 'Sem Status extra' }] : []),
+    ],
+    value: f.extra,
+    visible: options.extra.length > 0,
+  });
 
   const defs = defsOf(data.tags);
-  setSelect('f-tag', [
-    { value: 'all', label: 'Qualquer tag' },
-    { value: NO_TAG, label: 'Sem tag' },
-    ...defs.map((d) => ({ value: d.id, label: d.name })),
-  ], f.tag, defs.length > 0);
+  pickers.tag.update({
+    // sem "Qualquer tag" na lista: nada marcado já quer dizer qualquer uma
+    options: [
+      { value: NO_TAG, label: 'Sem tag' },
+      ...defs.map((d) => {
+        const { cls, style } = tagColor(d.color);
+        return { value: d.id, label: d.name, dot: { cls, style } };
+      }),
+    ],
+    value: f.tag,
+    visible: defs.length > 0,
+  });
 
   const active = activeFilterCount(f) > 0;
   $('#filter-summary').hidden = !active;
@@ -541,6 +576,7 @@ function paint() {
   if (!data || !ui) return;
   renderPaused();
   const inDetail = openId != null;
+  if (inDetail) closePickers();
   $('#list-view').hidden = inDetail;
   $('#detail').hidden = !inDetail;
   if (inDetail) {
@@ -649,7 +685,7 @@ $('#filters-toggle').addEventListener('click', () => {
   saveUi();
   paint();
 });
-for (const [id, key] of [['f-status', 'status'], ['f-role', 'role'], ['f-entity', 'entity'], ['f-extra', 'extra'], ['f-priority', 'priority'], ['f-tag', 'tag']]) {
+for (const [id, key] of [['f-status', 'status'], ['f-role', 'role'], ['f-priority', 'priority']]) {
   $(`#${id}`).addEventListener('change', (ev) => setFilter({ [key]: ev.target.value }));
 }
 $('#f-clear').addEventListener('click', clearFilters);

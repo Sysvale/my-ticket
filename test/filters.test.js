@@ -9,6 +9,7 @@ import {
   filterOptions,
   mergeFilters,
   sanitizeFilters,
+  toList,
 } from '../extension/src/filters.js';
 
 const t = (id, o = {}) => ({ id, title: 'Titulo', entity: 'Município Beta', status: 2, priority: 3, extra: '', sources: ['assigned'], ...o });
@@ -109,6 +110,28 @@ test('mergeFilters tolera lixo salvo e completa com os padrões', () => {
   assert.deepEqual(mergeFilters({ q: 'a' }), { ...DEFAULT_FILTERS, q: 'a' });
 });
 
+test('mergeFilters devolve sempre uma lista de tags nova: mexer nela não altera os padrões', () => {
+  const a = mergeFilters(null);
+  a.tag.push('x');
+  assert.deepEqual(DEFAULT_FILTERS.tag, []);
+  assert.deepEqual(mergeFilters(null).tag, []);
+  assert.throws(() => DEFAULT_FILTERS.tag.push('x')); // e os padrões não deixam ser alterados
+});
+
+test('toList aceita lista e o formato antigo (texto), sem repetidos, vazios nem "all"', () => {
+  assert.deepEqual(toList(['a', 'b', 'a']), ['a', 'b']);
+  assert.deepEqual(toList('a'), ['a']);
+  assert.deepEqual(toList('all'), []);
+  assert.deepEqual(toList(['all', '', 'a', 3, null, {}]), ['a']);
+  for (const lixo of [undefined, null, 5, {}, true]) assert.deepEqual(toList(lixo), []);
+});
+
+test('um filtro de tag salvo como texto por uma versão antiga continua valendo', () => {
+  assert.deepEqual(mergeFilters({ tag: 'all' }).tag, []);
+  assert.deepEqual(mergeFilters({ tag: 'avisado' }).tag, ['avisado']);
+  assert.deepEqual(mergeFilters({ tag: NO_TAG }).tag, [NO_TAG]);
+});
+
 // ---------- tags (as tags vêm do storage, não do ticket: entram por tagsOf) ----------
 const PR = { id: 'pr-review', name: 'PR em review' };
 const AVISADO = { id: 'avisado', name: 'Cliente avisado' };
@@ -117,13 +140,34 @@ const tagsOf = (x) => TAGGED[x.id] ?? [];
 const idsTag = (f) => applyFilters(TICKETS, { ...DEFAULT_FILTERS, ...f }, undefined, tagsOf).map((x) => x.id);
 
 test('filtro por tag: uma tag, "sem tag" e combinação com os outros filtros', () => {
-  assert.deepEqual(idsTag({ tag: 'pr-review' }), [1, 5]);
-  assert.deepEqual(idsTag({ tag: 'avisado' }), [1, 2]);
-  assert.deepEqual(idsTag({ tag: NO_TAG }), [3, 4]);
-  assert.deepEqual(idsTag({ tag: 'pr-review', entity: 'Município Alfa' }), [5]);
+  assert.deepEqual(idsTag({ tag: ['pr-review'] }), [1, 5]);
+  assert.deepEqual(idsTag({ tag: ['avisado'] }), [1, 2]);
+  assert.deepEqual(idsTag({ tag: [NO_TAG] }), [3, 4]);
+  assert.deepEqual(idsTag({ tag: ['pr-review'], entity: 'Município Alfa' }), [5]);
   assert.deepEqual(idsTag({}), [1, 2, 3, 4, 5]);
+  assert.deepEqual(idsTag({ tag: [] }), [1, 2, 3, 4, 5]);
+  // o formato antigo (texto) também filtra
+  assert.deepEqual(idsTag({ tag: 'pr-review' }), [1, 5]);
   // sem tagsOf (chamadas antigas) o filtro "sem tag" enxerga tudo sem tag, e uma tag específica nada
-  assert.deepEqual(applyFilters(TICKETS, { ...DEFAULT_FILTERS, tag: 'pr-review' }).map((x) => x.id), []);
+  assert.deepEqual(applyFilters(TICKETS, { ...DEFAULT_FILTERS, tag: ['pr-review'] }).map((x) => x.id), []);
+});
+
+test('várias tags: o ticket aparece se tiver QUALQUER uma delas', () => {
+  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'] }), [1, 2, 5]);
+  assert.deepEqual(idsTag({ tag: ['avisado', 'pr-review'] }), [1, 2, 5]); // a ordem da seleção não importa
+  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado', 'nao-existe'] }), [1, 2, 5]);
+  assert.deepEqual(idsTag({ tag: ['nao-existe'] }), []);
+});
+
+test('"Sem tag" junto de outras tags soma os tickets sem nenhuma com os que têm uma das escolhidas', () => {
+  assert.deepEqual(idsTag({ tag: [NO_TAG, 'pr-review'] }), [1, 3, 4, 5]);
+  assert.deepEqual(idsTag({ tag: [NO_TAG, 'avisado'] }), [1, 2, 3, 4]);
+});
+
+test('várias tags combinam com os outros filtros por E', () => {
+  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'], entity: 'Município Beta' }), [1]);
+  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'], status: 'open', q: 'login' }), [5]);
+  assert.deepEqual(idsTag({ tag: [NO_TAG, 'avisado'], role: 'manual' }), [3, 4]);
 });
 
 test('a busca por texto também acha o nome da tag (sem acento)', () => {
@@ -133,13 +177,21 @@ test('a busca por texto também acha o nome da tag (sem acento)', () => {
   assert.deepEqual(idsTag({ q: 'pr em review sem acesso' }), []); // todas as palavras precisam casar no mesmo ticket
 });
 
-test('tag entra na contagem de filtros e uma tag apagada volta para "todas"', () => {
-  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: 'pr-review' }), 1);
-  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: NO_TAG }, { panelOnly: true }), 1);
+test('tag entra na contagem de filtros (uma seleção múltipla conta como um só)', () => {
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['pr-review'] }), 1);
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['pr-review', 'avisado', NO_TAG] }), 1);
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: [NO_TAG] }, { panelOnly: true }), 1);
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['avisado'], entity: 'Município Beta' }, { panelOnly: true }), 2);
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: 'avisado' }), 1); // formato antigo
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: 'all' }), 0);
+});
+
+test('tags apagadas saem da seleção; as que ainda existem e "Sem tag" ficam', () => {
   const options = { entities: [], extra: [], hasNoExtra: false, tags: ['avisado'] };
-  assert.equal(sanitizeFilters({ tag: 'pr-review' }, options).tag, 'all'); // a tag foi apagada
-  assert.equal(sanitizeFilters({ tag: 'avisado' }, options).tag, 'avisado');
-  assert.equal(sanitizeFilters({ tag: NO_TAG }, options).tag, NO_TAG);
+  assert.deepEqual(sanitizeFilters({ tag: ['pr-review'] }, options).tag, []); // a tag foi apagada
+  assert.deepEqual(sanitizeFilters({ tag: ['pr-review', 'avisado', NO_TAG] }, options).tag, ['avisado', NO_TAG]);
+  assert.deepEqual(sanitizeFilters({ tag: 'avisado' }, options).tag, ['avisado']);
+  assert.deepEqual(sanitizeFilters({ tag: [NO_TAG] }, options).tag, [NO_TAG]);
   // sem a lista de tags (chamadas antigas), nada é corrigido
-  assert.equal(sanitizeFilters({ tag: 'qualquer' }, { entities: [], extra: [], hasNoExtra: false }).tag, 'qualquer');
+  assert.deepEqual(sanitizeFilters({ tag: ['qualquer'] }, { entities: [], extra: [], hasNoExtra: false }).tag, ['qualquer']);
 });
