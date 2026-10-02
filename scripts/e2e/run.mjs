@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startFakeGlpi, TOKENS } from './fake-glpi.mjs';
+import { fmt, startFakeGlpi, TOKENS } from './fake-glpi.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.E2E_OUT ?? join(ROOT, 'docs/e2e');
@@ -1024,6 +1024,102 @@ try {
     await light(pop);
     options.close();
     pop.close();
+  }
+
+  // ---- 9j. gráfico de tempo por atribuído: só consulta o GLPI quando clica
+  {
+    const S = newStep('Tempo por atribuído (rosca): o GLPI só é consultado no clique',
+      'Nos detalhes do ticket, “Gerar gráfico de tempo” consulta o histórico do GLPI (3 consultas) e desenha uma rosca com 100% do tempo, da abertura até agora, dividido por pessoa/equipe atribuída. Sem clique, nenhuma consulta: nem pelo polling, nem ao abrir os detalhes.');
+    const logUrls = () => world.urls.filter((u) => /with_logs|Ticket_User|Group_Ticket/.test(u));
+    const T = Date.parse(world.tickets[159919].date.replace(' ', 'T'));
+    const mm = (m) => fmt(T + m * 60_000);
+    let rid = 0;
+    const row = (m, op, name, uid) => ({
+      id: String(++rid), itemtype: 'Ticket', items_id: 159919, itemtype_link: 'User', linked_action: op === 'add' ? 15 : 16, user_name: 'Admin (1)',
+      date_mod: mm(m), id_search_option: 0, old_value: op === 'del' ? `${name} (${uid})` : '', new_value: op === 'add' ? `${name} (${uid})` : '',
+    });
+    // Ana (requerente) desde a abertura; Analista de 30 a 90 min (já saiu); Analista desde 90 min (atribuído agora)
+    world.logs[159919] = [row(0, 'add', 'Ana Paula Ribeiro', 22), row(30, 'add', 'Analista A', 20), row(90, 'del', 'Analista A', 20), row(90, 'add', 'Analista B', 21)];
+    world.actors[159919] = { users: [{ users_id: 22, type: 1 }, { users_id: 21, type: 2 }], groups: [] };
+
+    S.check('Antes de qualquer clique, nenhuma consulta de histórico foi feita (nem pelo polling)', logUrls().length === 0, logUrls().join(' | '));
+    if (!(await popup.eval("document.getElementById('detail').hidden"))) await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden", 'lista');
+    await popup.click(cardButton('#159919'));
+    await popup.waitFor("!document.getElementById('detail').hidden && document.querySelector('#detail [data-focus=share-gen]') !== null", 'seção de tempo');
+    S.check('Abrir os detalhes não consulta o histórico: só mostra o botão', logUrls().length === 0 && (await popup.text('#detail')).includes('Gerar gráfico de tempo'));
+    S.check('Texto avisa que o GLPI só é consultado no clique', (await popup.text('#detail')).includes('só é consultado quando você clica'));
+    await S.shot(popup, 'Detalhes do ticket: a seção “Tempo por atribuído” antes de gerar', "document.querySelector('#detail [data-focus=share-gen]')");
+
+    await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
+    await popup.waitFor("document.querySelector('#detail .dn') !== null", 'rosca desenhada');
+    const first = logUrls();
+    S.check('O clique faz exatamente 3 consultas: ticket com o log, pessoas e equipes', first.length === 3 && first.some((u) => /Ticket\/159919\?with_logs=true/.test(u)) && first.some((u) => /Ticket_User/.test(u)) && first.some((u) => /Group_Ticket/.test(u)), first.join(' | '));
+    const legend = async () => JSON.parse(await popup.eval("JSON.stringify([...document.querySelectorAll('#detail .dn-legend li')].map((li) => [li.querySelector('.dn-name').firstChild.textContent, li.querySelector('.dn-val').textContent, li.querySelector('.dn-pct').textContent]))"));
+    const l1 = await legend();
+    S.check('Fatias: Analista (atribuído agora), fila e “Papel desconhecido” (a passagem da Analista, que já saiu)', l1.map((x) => x[0]).sort().join('|') === ['Analista B', 'Papel desconhecido', 'Sem atribuição / Fila'].sort().join('|'), JSON.stringify(l1));
+    S.check('A requerente (Ana) não aparece como atribuída', !l1.some((x) => x[0].includes('Ana')));
+    const pct = (await popup.eval("[...document.querySelectorAll('#detail .dn-pct')].map((e) => parseFloat(e.textContent.replace(',', '.')))")).reduce((a, b) => a + b, 0);
+    S.check('As porcentagens somam 100%', Math.abs(pct - 100) < 0.31, `${pct}`);
+    S.check('Aviso do tempo de quem saiu e a opção para contá-lo', (await popup.text('#detail')).includes('o GLPI não guarda o papel de quem saiu') && (await popup.eval("document.querySelector('#detail [data-focus=share-unknown]') !== null")));
+    S.check('O técnico atual aparece “em andamento”', await popup.eval("[...document.querySelectorAll('#detail .dn-live')].some((e) => e.closest('li').textContent.includes('Analista B'))"));
+    S.check('A rosca tem texto alternativo com os valores', (await popup.eval("document.querySelector('#detail .dn-chart').getAttribute('aria-label')")).includes('Analista B'));
+    await S.shot(popup, 'Rosca gerada: Analista (atribuído agora), fila inicial e o tempo de quem já saiu', "document.querySelector('#detail .dn')");
+
+    // contar quem saiu como atribuído: recalcula sem falar com o GLPI
+    await popup.click("document.querySelector('#detail [data-focus=share-unknown]')");
+    await popup.waitFor("[...document.querySelectorAll('#detail .dn-name')].some((e) => e.textContent.includes('Analista A'))", 'Analista entrou na rosca');
+    const l2 = await legend();
+    S.check('Com a opção marcada a Analista aparece e “Papel desconhecido” some', l2.some((x) => x[0] === 'Analista A') && !l2.some((x) => x[0] === 'Papel desconhecido'), JSON.stringify(l2));
+    S.check('Marcar a opção não consulta o GLPI de novo', logUrls().length === 3);
+    await S.shot(popup, 'Com “Contar quem saiu do ticket como atribuído” marcado', "document.querySelector('#detail .dn')");
+    await popup.click("document.querySelector('#detail [data-focus=share-unknown]')");
+
+    // Atualizar consulta de novo; e voltar/abrir outro ticket não consulta nada
+    await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
+    await popup.waitFor("document.querySelector('#detail .dn') !== null && !document.querySelector('#detail').textContent.includes('Consultando')", 'rosca atualizada');
+    S.check('“Atualizar” consulta o GLPI de novo (mais 3)', logUrls().length === 6, `${logUrls().length}`);
+    await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden", 'lista');
+    await popup.click(cardButton('#159885'));
+    await popup.waitFor("!document.getElementById('detail').hidden && document.querySelector('#detail [data-focus=share-gen]') !== null", 'outro ticket');
+    S.check('Abrir outro ticket não gera nem consulta nada: volta ao botão', logUrls().length === 6 && !(await popup.eval("document.querySelector('#detail .dn') !== null")));
+    await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden", 'lista');
+
+    // perfil sem o direito "Logs": aviso claro, sem rosca
+    world.logs[159919] = { error: 401, message: 'You do not have permission to perform this action.' };
+    await popup.click(cardButton('#159919'));
+    await popup.waitFor("document.querySelector('#detail [data-focus=share-gen]') !== null", 'detalhes de novo');
+    if (await popup.eval("document.querySelector('#detail .dn') !== null")) await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
+    else await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
+    await popup.waitFor("document.querySelector('#detail .d-error') !== null", 'aviso de direito');
+    S.check('Sem o direito “Logs” o aviso diz o que falta, sem gráfico', (await popup.text('#detail .d-error')).includes('Logs') && !(await popup.eval("document.querySelector('#detail .dn') !== null")));
+    await S.shot(popup, 'Perfil sem o direito de ler o histórico: aviso claro', "document.querySelector('#detail .d-error')");
+
+    // ocultar conteúdo: nenhum nome na rosca
+    world.logs[159919] = [row(0, 'add', 'Ana Paula Ribeiro', 22), row(30, 'add', 'Analista A', 20), row(90, 'del', 'Analista A', 20), row(90, 'add', 'Analista B', 21)];
+    await sw.eval("chrome.storage.local.get('config').then(({ config }) => chrome.storage.local.set({ config: { ...config, hideContent: true } }))");
+    await sleep(300);
+    await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
+    await popup.waitFor("document.querySelector('#detail .dn') !== null", 'rosca sem nomes');
+    const hidden = await popup.text('#detail .dn');
+    S.check('Com “ocultar conteúdo” a rosca não traz nome de ninguém (Pessoa #id)', !/Analista|Analista|Ana Paula|Analista|Analista|Ribeiro/.test(hidden) && hidden.includes('Pessoa #21'), hidden.replace(/\s+/g, ' ').slice(0, 160));
+    await sw.eval("chrome.storage.local.get('config').then(({ config }) => chrome.storage.local.set({ config: { ...config, hideContent: false } }))");
+    await sleep(300);
+
+    // tema escuro com neon: a rosca ganha brilho e as cores do tema
+    await popup.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    await sw.eval("chrome.storage.local.set({ appearance: { theme: 'auto', neon: true } })");
+    await popup.waitFor("'neon' in document.documentElement.dataset", 'neon');
+    await S.shot(popup, 'Rosca no tema escuro com o efeito neon ligado', "document.querySelector('#detail .dn')");
+    await sw.eval("chrome.storage.local.remove('appearance')");
+    await popup.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    await popup.waitFor("!('neon' in document.documentElement.dataset)", 'neon desligado');
+
+    S.check('Ao todo, só houve consulta de histórico nos cliques (3 por geração)', logUrls().length % 3 === 0, `${logUrls().length}`);
+    await popup.click("document.querySelector('#detail .back')");
+    await popup.waitFor("!document.getElementById('list-view').hidden", 'lista');
   }
 
   // ---- 10. opções: salvar avisa e grava

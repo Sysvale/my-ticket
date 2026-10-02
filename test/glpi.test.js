@@ -215,3 +215,69 @@ test('o limite de tempo vale também para a leitura do corpo da resposta', async
   clearTimeout(guard);
   assert.equal(outcome, 'NETWORK');
 });
+
+// ---------- histórico do ticket (gráfico de tempo por atribuído; só quando a pessoa pede) ----------
+
+// Responde a initSession e entrega o resto a `handler(path)`, anotando o caminho de cada chamada.
+function history(handler) {
+  const paths = [];
+  const fetchImpl = async (url, init) => {
+    const path = url.split('/apirest.php/')[1];
+    if (path === 'initSession') return res(200, { session_token: 'S1' });
+    paths.push(path);
+    assert.equal(init.method, 'GET');
+    return handler(path);
+  };
+  return { api: createClient({ ...CFG, fetchImpl }), paths };
+}
+
+test('ticketWithLogs pede o histórico sem os links HATEOAS e devolve as linhas como lista', async () => {
+  const rows = { 10: { id: '10', id_search_option: 12 }, 11: { id: '11', id_search_option: 0 } }; // o GLPI indexa pelo id da linha
+  const { api, paths } = history(() => res(200, { id: 5, name: 'T', status: 2, _logs: rows }));
+  const out = await api.ticketWithLogs(5);
+  assert.deepEqual(paths, ['Ticket/5?with_logs=true&get_hateoas=false']);
+  assert.deepEqual(out.logs.map((r) => r.id), ['10', '11']);
+  assert.equal(out.ticket.name, 'T');
+  assert.equal('_logs' in out.ticket, false); // o ticket sai sem o log colado
+});
+
+test('ticketWithLogs: ticket sem nenhuma linha de histórico é lista vazia, e não "sem direito"', async () => {
+  const { api } = history(() => res(200, { id: 5, _logs: [] }));
+  assert.deepEqual((await api.ticketWithLogs(5)).logs, []);
+});
+
+test('ticketWithLogs: o erro de direito que o GLPI põe dentro de _logs (HTTP 200) vira logs = null', async () => {
+  const { api } = history(() => res(200, { id: 5, name: 'T', _logs: { error: 401, message: 'You do not have permission to perform this action.' } }));
+  const out = await api.ticketWithLogs(5);
+  assert.equal(out.logs, null);
+  assert.equal(out.ticket.name, 'T');
+});
+
+test('ticketWithLogs: instância que não devolve _logs também é "sem histórico"; resposta que não é ticket é erro', async () => {
+  const { api } = history(() => res(200, { id: 5, name: 'T' }));
+  assert.equal((await api.ticketWithLogs(5)).logs, null);
+  const bad = history(() => res(200, []));
+  await assert.rejects(() => bad.api.ticketWithLogs(5), (e) => e instanceof GlpiError && /Resposta inesperada/.test(e.message));
+});
+
+test('ticketActors junta usuários e equipes com o papel, e ignora o que não tem id ou papel válido', async () => {
+  const { api, paths } = history((path) => {
+    if (path.startsWith('Ticket/5/Ticket_User')) return res(200, [{ users_id: 7, type: 1 }, { users_id: 8, type: 2 }, { users_id: 0, type: 2 }, { users_id: 9, type: 9 }]);
+    return res(200, [{ groups_id: 3, type: 3 }]);
+  });
+  assert.deepEqual(await api.ticketActors(5), [
+    { type: 'User', id: 7, role: 1 },
+    { type: 'User', id: 8, role: 2 },
+    { type: 'Group', id: 3, role: 3 },
+  ]);
+  assert.deepEqual(paths.sort(), ['Ticket/5/Group_Ticket?range=0-199&get_hateoas=false', 'Ticket/5/Ticket_User?range=0-199&get_hateoas=false']);
+});
+
+test('ticketActors: sem direito de leitura numa das listas vira lista vazia; erro do servidor continua sendo erro', async () => {
+  const { api } = history((path) => (path.startsWith('Ticket/5/Ticket_User')
+    ? res(403, ['ERROR_RIGHT_MISSING', 'sem direito'])
+    : res(200, [{ groups_id: 3, type: 2 }])));
+  assert.deepEqual(await api.ticketActors(5), [{ type: 'Group', id: 3, role: 2 }]);
+  const down = history(() => res(500, ['ERROR_INTERNAL', 'falhou']));
+  await assert.rejects(() => down.api.ticketActors(5), (e) => e instanceof GlpiError && e.status === 500);
+});

@@ -1,6 +1,6 @@
 // GLPI simulado (HTTPS local) para o teste ponta a ponta. Responde ao subconjunto da API REST legada
 // que a extensão usa: initSession, getFullSession, getGlpiConfig, search/Ticket, Ticket/:id,
-// Ticket/:id/ITILFollowup, Ticket/:id/ITILSolution e User/:id. Só para testes: dados fictícios.
+// Ticket/:id/ITILFollowup, Ticket/:id/ITILSolution, User/:id e, só para o gráfico de tempo, Ticket/:id?with_logs=true, Ticket_User e Group_Ticket. Só para testes: dados fictícios.
 import https from 'node:https';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -27,6 +27,8 @@ export function makeWorld() {
     tickets: {},
     followups: {},
     solutions: {},
+    logs: {}, // ticket -> linhas de histórico (só vão na resposta se pedirem with_logs=true), ou { error, message } sem o direito "Logs"
+    actors: {}, // ticket -> { users: [{ users_id, type }], groups: [{ groups_id, type }] } (Ticket_User / Group_Ticket)
     entities: {},
     extra: {},
     roles: { assigned: [], observer: [], requester: [] },
@@ -187,7 +189,19 @@ export async function startFakeGlpi(world = demoWorld()) {
     if ((m = path.match(/^Ticket\/(\d+)$/))) {
       if (world.failTickets.has(Number(m[1]))) return json(res, 500, ['ERROR_INTERNAL', 'Erro interno do servidor']);
       const t = world.tickets[Number(m[1])];
-      return t ? json(res, 200, t) : json(res, 404, ['ERROR_ITEM_NOT_FOUND', 'Élément introuvable']);
+      if (!t) return json(res, 404, ['ERROR_ITEM_NOT_FOUND', 'Élément introuvable']);
+      // with_logs=true: o histórico vem colado no ticket, indexado pelo id da linha (ou o erro de direito, com HTTP 200)
+      if (url.searchParams.get('with_logs') === 'true') {
+        const rows = world.logs[t.id] ?? [];
+        const _logs = Array.isArray(rows) ? Object.fromEntries(rows.map((r) => [r.id, r])) : rows;
+        return json(res, 200, { ...t, _logs });
+      }
+      return json(res, 200, t);
+    }
+    if ((m = path.match(/^Ticket\/(\d+)\/(Ticket_User|Group_Ticket)$/))) {
+      const id = Number(m[1]);
+      if (!world.tickets[id]) return json(res, 404, ['ERROR_ITEM_NOT_FOUND', 'Élément introuvable']);
+      return json(res, 200, (world.actors[id] ?? {})[m[2] === 'Ticket_User' ? 'users' : 'groups'] ?? []);
     }
     if ((m = path.match(/^Ticket\/(\d+)\/(ITILFollowup|ITILSolution)$/))) {
       const id = Number(m[1]);
