@@ -30,6 +30,12 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   têm um campo de busca dentro da lista (sem diferenciar acentos), para achar a opção quando são muitas;
   **Tag** aceita **várias escolhas** ao mesmo tempo (aparece o ticket que tiver *qualquer uma* delas, e “Sem tag”
   pode entrar na mistura). Funciona só pelo teclado: ↓/↑ andam pela lista, Enter marca, Esc fecha.
+- **Fixar tickets:** o botão **Fixar** (no card e nos detalhes) mantém o ticket numa seção **Fixados** no topo da lista,
+  sem limite de quantidade, na ordem em que foram fixados. Os fixados **aparecem mesmo com filtros ligados**: nesse caso a
+  seção avisa “sempre visíveis, fora dos filtros”, uma linha separa o “Resultado dos filtros” e o resumo conta os
+  fixados à parte (“Mostrando 1 de 3 · 1 fixado à parte”), para ficar claro o que passou no filtro e o que está ali por
+  estar fixado. O ticket fixado não se repete em outra seção. Quando um fixado sai do radar (resolvido há dias, ou troca
+  de conta), ele é desafixado sozinho. Fica só neste navegador.
 - **Aparência:** em Opções → **Aparência**, tema **Automático** (segue o sistema), **Claro** ou **Escuro**, e o
   interruptor do **efeito neon** (cores vivas e brilho nas tags, botões e cartões, só no tema escuro). Vale na hora, em
   todas as telas, e fica só neste navegador. Padrão: automático e neon desligado.
@@ -251,6 +257,7 @@ extension/
   guide.*            Guia de notificações (verificação ao vivo, exemplos, passo a passo)
   src/filters.js     filtros do popup (lógica pura)
   src/omnibox.js     sugestões e leitura do que se digita na barra de endereços (lógica pura)
+  src/pins.js        tickets fixados no topo da lista (lógica pura)
   src/timeshare.js   tempo por atribuído / rosca (lógica pura: log do GLPI → fatias que somam 100%)
   src/picker.js      seletor com busca e seleção múltipla do painel de filtros (lógica pura)
   src/picker-ui.js   o DOM desse seletor (botão, busca, lista, teclado e ARIA)

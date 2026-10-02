@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAppearance, markRead, pruneUser, updateAppearance, updateUser } from '../extension/src/store.js';
+import { getAppearance, getUser, markRead, pruneUser, resetUser, updateAppearance, updateUser } from '../extension/src/store.js';
 
 // chrome.storage.local simulado com latência, para expor gravações que se atropelam.
 let db;
@@ -131,4 +131,25 @@ test('aparência: sem nada no storage vale o padrão; lixo gravado também; muda
   const before = writes;
   await updateAppearance(() => false); // nada mudou: não grava (não acorda quem ouve o storage)
   assert.equal(writes, before);
+});
+
+test('fixados: o padrão é lista vazia, sobrevive a gravações simultâneas, sai do cache junto com o ticket e zera na troca de conta', async () => {
+  fresh();
+  assert.deepEqual((await getUser()).pinned, []);
+  await Promise.all([
+    updateUser((u) => { u.pinned = [...(u.pinned ?? []), 1]; }),
+    markRead(2), // outra gravação do user ao mesmo tempo
+    updateUser((u) => { u.pinned = [...(u.pinned ?? []), 3]; }),
+  ]);
+  assert.deepEqual(db.user.pinned, [1, 3]);
+  assert.deepEqual(Object.keys(db.user.readAt), ['2']);
+
+  const user = { watched: {}, readAt: {}, pinned: [1, 3, 9] };
+  assert.equal(pruneUser(user, { tickets: { 1: {}, 9: {} } }), true); // o 3 saiu do cache
+  assert.deepEqual(user.pinned, [1, 9]);
+  assert.equal(pruneUser(user, { tickets: { 1: {}, 9: {} } }), false);
+
+  assert.equal(resetUser(user), true); // outra conta/GLPI: os números de ticket não valem mais
+  assert.deepEqual(user.pinned, []);
+  assert.equal(resetUser({ watched: {}, readAt: {} }), false); // user antigo, sem o campo, e vazio
 });
