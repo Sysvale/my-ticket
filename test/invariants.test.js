@@ -97,6 +97,8 @@ test('manifest: só as permissões que o produto usa, host só opcional e https,
   assert.equal(manifest.background.service_worker, 'background.js');
   assert.equal(manifest.background.scripts, undefined);
   assert.equal(manifest.browser_specific_settings, undefined);
+  // A única superfície além do popup e das Opções: a palavra-chave da barra de endereços ("ticket 148270"). Não pede permissão.
+  assert.deepEqual(manifest.omnibox, { keyword: 'ticket' });
   for (const key of ['content_scripts', 'web_accessible_resources', 'externally_connectable', 'content_security_policy', 'optional_permissions', 'devtools_page', 'sandbox']) {
     assert.equal(manifest[key], undefined, `${key} abre uma superfície nova: confirme que é intencional e ajuste este teste`);
   }

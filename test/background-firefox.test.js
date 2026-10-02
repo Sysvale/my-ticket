@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 const L = {};
 const stored = {};
 const created = [];
+const omniDefault = [];
+const tabsCreated = [];
 const audios = [];
 let nextId = 0;
 const noop = { addListener() {} };
@@ -36,7 +38,12 @@ globalThis.chrome = {
     getAll: async () => ({}),
     onClicked: { addListener: (fn) => { L.onClicked = fn; } },
   },
-  tabs: { query: async () => [], create: async () => {}, update: async () => {}, onUpdated: noop },
+  omnibox: {
+    setDefaultSuggestion: (s) => { omniDefault.push(s); },
+    onInputChanged: { addListener: (fn) => { L.omniChanged = fn; } },
+    onInputEntered: { addListener: (fn) => { L.omniEntered = fn; } },
+  },
+  tabs: { query: async () => [], create: async (o) => { tabsCreated.push(o); }, update: async () => {}, onUpdated: noop },
   windows: { getLastFocused: async () => ({ id: 1, focused: true }), update: async () => {} },
   alarms: { get: async () => undefined, create: async () => {}, clear: async () => {}, onAlarm: noop },
   action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {}, setTitle: async () => {} },
@@ -113,4 +120,15 @@ test('som desligado ou volume 0: não toca nada', async () => {
   await send({ type: 'demo-notifications', hideContent: false, sound: { enabled: false, name: 'chime', volume: 0.6 } });
   await send({ type: 'demo-notifications', hideContent: false, sound: { enabled: true, name: 'chime', volume: 0 } });
   assert.equal(audios.length, 0);
+});
+
+test('barra de endereços no Firefox: a descrição da sugestão é texto puro (sem escapar & e <)', async () => {
+  stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+  stored.state = { tickets: { 7: { id: 7, title: 'Agenda & fila <urgente>', entity: 'Município Beta', dateMod: '2026-09-29 10:00:00' } } };
+  let list;
+  await L.omniChanged('agenda', (l) => { list = l; });
+  assert.deepEqual(list, [{ content: '7', description: '#7 — Agenda & fila <urgente>' }]);
+  assert.equal(omniDefault.at(-1).description, 'Digite o número do ticket, um link ou parte do título');
+  await L.omniEntered('7', 'newForegroundTab');
+  assert.deepEqual(tabsCreated, [{ url: 'https://glpi.test/front/ticket.form.php?id=7' }]);
 });

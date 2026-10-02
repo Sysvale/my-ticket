@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 
 const L = {}; // ouvintes registrados pelo background.js
 const stored = {}; // conteúdo de chrome.storage.local
-const calls = { create: [], clear: [], tabsCreate: [], openPopup: 0, storageSet: [], offscreen: [], messages: [], windowUpdates: [], alarmCreate: [], alarmClear: [], badge: [], title: [], cleared: 0 };
+const calls = { omniDefault: [], tabsUpdate: [], options: 0, create: [], clear: [], tabsCreate: [], openPopup: 0, storageSet: [], offscreen: [], messages: [], windowUpdates: [], alarmCreate: [], alarmClear: [], badge: [], title: [], cleared: 0 };
 let lastWindow = { id: 5, focused: false }; // janela do Chrome mais recente (fora de foco)
 let openContexts = []; // páginas offscreen "abertas"
 let failOffscreen = false;
+let queryTabs = []; // resultado de chrome.tabs.query
 let permissionLevel = 'granted';
 const noop = { addListener() {} };
 
@@ -16,6 +17,7 @@ globalThis.chrome = {
     getURL: (p) => `chrome-extension://x/${p}`,
     onMessage: { addListener: (fn) => { L.onMessage = fn; } },
     getContexts: async () => openContexts,
+    openOptionsPage: () => { calls.options += 1; },
     sendMessage: async (m) => { calls.messages.push(m); },
     onInstalled: noop,
     onStartup: noop,
@@ -28,7 +30,12 @@ globalThis.chrome = {
     onClicked: { addListener: (fn) => { L.onClicked = fn; } },
     onButtonClicked: { addListener: (fn) => { L.onButton = fn; } },
   },
-  tabs: { query: async () => [], create: async (o) => { calls.tabsCreate.push(o); }, update: async () => {}, onUpdated: { addListener: (fn) => { L.onUpdated = fn; } } },
+  omnibox: {
+    setDefaultSuggestion: (s) => { calls.omniDefault.push(s); },
+    onInputChanged: { addListener: (fn) => { L.omniChanged = fn; } },
+    onInputEntered: { addListener: (fn) => { L.omniEntered = fn; } },
+  },
+  tabs: { query: async () => queryTabs, create: async (o) => { calls.tabsCreate.push(o); }, update: async (...a) => { calls.tabsUpdate.push(a); }, onUpdated: { addListener: (fn) => { L.onUpdated = fn; } } },
   windows: {
     getLastFocused: async () => lastWindow,
     update: async (id, info) => { calls.windowUpdates.push({ id, info }); },
@@ -69,6 +76,10 @@ const reset = () => {
   calls.create.length = 0;
   calls.clear.length = 0;
   calls.tabsCreate.length = 0;
+  calls.tabsUpdate.length = 0;
+  calls.omniDefault.length = 0;
+  calls.options = 0;
+  queryTabs = [];
   calls.storageSet.length = 0;
   calls.openPopup = 0;
   calls.offscreen.length = 0;
@@ -300,6 +311,105 @@ test('ticket-details respeita ocultar conteúdo e traduz falhas do GLPI', async 
     assert.equal(missing.ok, false);
     assert.match(missing.error, /não encontrado/);
   } finally { glpi.restore(); }
+});
+
+// ---------- barra de endereços: "ticket 148270" ----------
+const GLPI = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
+const RADAR = {
+  148270: { id: 148270, title: 'Relatório mensal & agenda <urgente>', entity: 'Município Beta', dateMod: '2026-09-29 10:00:00' },
+  148271: { id: 148271, title: 'Bloqueio de agenda', entity: 'Município Gama�', dateMod: '2026-09-30 09:00:00' },
+};
+const suggestFor = async (text) => {
+  let got;
+  await L.omniChanged(text, (list) => { got = list; });
+  return got;
+};
+
+test('omnibox: número abre o ticket numa aba nova e marca como lido', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  await L.omniEntered('148270', 'newForegroundTab');
+  assert.deepEqual(calls.tabsCreate, [{ url: 'https://glpi.test/front/ticket.form.php?id=148270' }]);
+  assert.equal(calls.options, 0);
+  assert.ok(calls.storageSet.some((w) => w.user?.readAt?.[148270])); // abrir conta como ler
+});
+
+test('omnibox: "#número" e link do GLPI abrem o mesmo ticket', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  await L.omniEntered('#148270', 'newForegroundTab');
+  await L.omniEntered('https://glpi.test/front/ticket.form.php?id=148271', 'newForegroundTab');
+  assert.deepEqual(calls.tabsCreate.map((c) => c.url.split('id=')[1]), ['148270', '148271']);
+});
+
+test('omnibox: respeita onde a pessoa quer abrir (aba atual, nova ou em segundo plano)', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  await L.omniEntered('148270', 'currentTab');
+  assert.deepEqual(calls.tabsUpdate, [[{ url: 'https://glpi.test/front/ticket.form.php?id=148270' }]]); // sem id de aba: a atual
+  assert.equal(calls.tabsCreate.length, 0);
+  await L.omniEntered('148270', 'newBackgroundTab');
+  assert.deepEqual(calls.tabsCreate, [{ url: 'https://glpi.test/front/ticket.form.php?id=148270', active: false }]);
+});
+
+test('omnibox: ticket que já está aberto numa aba só ganha o foco', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  queryTabs = [{ id: 3, windowId: 9, url: 'https://glpi.test/front/ticket.form.php?id=148270' }];
+  await L.omniEntered('148270', 'newForegroundTab');
+  assert.deepEqual(calls.tabsUpdate, [[3, { active: true }]]);
+  assert.deepEqual(calls.windowUpdates, [{ id: 9, info: { focused: true } }]);
+  assert.equal(calls.tabsCreate.length, 0);
+});
+
+test('omnibox: texto livre só abre com UM único resultado; sem resultado ou ambíguo não faz nada', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  stored.state = { tickets: RADAR };
+  await L.omniEntered('mensal', 'newForegroundTab');
+  assert.equal(calls.tabsCreate.length, 1);
+  assert.match(calls.tabsCreate[0].url, /id=148270$/);
+  await L.omniEntered('agenda', 'newForegroundTab'); // casa com os dois
+  await L.omniEntered('nada disso', 'newForegroundTab');
+  await L.omniEntered('', 'newForegroundTab');
+  assert.equal(calls.tabsCreate.length, 1);
+});
+
+test('omnibox: sem GLPI configurado abre as Opções e não abre ticket nenhum', async () => {
+  reset();
+  await L.omniEntered('148270', 'newForegroundTab');
+  assert.equal(calls.options, 1);
+  assert.equal(calls.tabsCreate.length, 0);
+});
+
+test('omnibox: sugestões vêm do cache local (sem consultar o GLPI), com o XML escapado', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  stored.state = { tickets: RADAR };
+  const glpi = fakeGlpi();
+  try {
+    const list = await suggestFor('mensal');
+    assert.deepEqual(list, [{ content: '148270', description: '#148270 — Relatório mensal &amp; agenda &lt;urgente&gt;' }]);
+    assert.deepEqual((await suggestFor('')).map((s) => s.content), ['148271', '148270']); // mais recente primeiro
+    assert.equal(glpi.paths.length, 0, 'sugerir não consulta o GLPI');
+  } finally { glpi.restore(); }
+});
+
+test('omnibox: a sugestão padrão diz o que vai acontecer', async () => {
+  reset();
+  stored.config = { ...GLPI };
+  await suggestFor('148270');
+  await suggestFor('abc');
+  assert.deepEqual(calls.omniDefault.map((d) => d.description), ['Abrir o ticket #148270 no GLPI', 'Digite o número do ticket, um link ou parte do título']);
+});
+
+test('omnibox com ocultar conteúdo: as sugestões mostram só o número do ticket', async () => {
+  reset();
+  stored.config = { ...GLPI, hideContent: true };
+  stored.state = { tickets: RADAR };
+  const list = await suggestFor('');
+  assert.deepEqual(list.map((s) => s.description), ['Ticket #148271', 'Ticket #148270']);
+  assert.doesNotMatch(JSON.stringify(list), /mensal|agenda|Bloqueio/);
 });
 
 // ---------- gráfico de tempo por atribuído (só quando a pessoa clica) ----------

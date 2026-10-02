@@ -18,3 +18,10 @@ export function notificationOptionsFor(opts, { firefox = false } = {}) {
   if (opts.contextMessage) out.message = `${opts.message}\n${opts.contextMessage}`;
   return out;
 }
+
+// A descrição das sugestões da barra de endereços é XML no Chrome/Edge (precisa escapar &, < e >); no Firefox é texto
+// puro, e escapar mostraria "&amp;" na tela.
+export function omniboxText(text, { firefox = false } = {}) {
+  const s = String(text ?? '');
+  return firefox ? s : s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
