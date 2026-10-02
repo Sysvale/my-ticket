@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAppearance, getUser, markRead, pruneUser, resetUser, updateAppearance, updateUser } from '../extension/src/store.js';
+import { getAppearance, getUi, getUser, markRead, pruneUser, resetUser, updateAppearance, updateUser } from '../extension/src/store.js';
 
 // chrome.storage.local simulado com latência, para expor gravações que se atropelam.
 let db;
@@ -152,4 +152,24 @@ test('fixados: o padrão é lista vazia, sobrevive a gravações simultâneas, s
   assert.equal(resetUser(user), true); // outra conta/GLPI: os números de ticket não valem mais
   assert.deepEqual(user.pinned, []);
   assert.equal(resetUser({ watched: {}, readAt: {} }), false); // user antigo, sem o campo, e vazio
+});
+
+test('getUi: ui antigo (sem agrupamento) ganha os padrões, e o que estiver gravado é saneado', async () => {
+  fresh();
+  const vazio = await getUi();
+  assert.equal(vazio.groupBy, 'padrao');
+  assert.deepEqual(vazio.sections, {});
+  assert.equal(vazio.panelOpen, false);
+  db.ui = { filters: { q: 'x' }, panelOpen: true }; // gravado por uma versão anterior
+  const antigo = await getUi();
+  assert.equal(antigo.groupBy, 'padrao');
+  assert.equal(antigo.filters.q, 'x');
+  assert.equal(antigo.panelOpen, true);
+  db.ui = { groupBy: 'status', sections: { 'status:5': true, lixo: 'sim' } };
+  const novo = await getUi();
+  assert.equal(novo.groupBy, 'status');
+  assert.deepEqual(novo.sections, { 'status:5': true });
+  db.ui = { groupBy: 'roxo', sections: 'x' };
+  assert.equal((await getUi()).groupBy, 'padrao');
+  assert.deepEqual((await getUi()).sections, {});
 });
