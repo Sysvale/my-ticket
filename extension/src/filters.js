@@ -11,7 +11,7 @@ export const DEFAULT_FILTERS = Object.freeze({
   entity: 'all',
   extra: 'all', // all | NO_EXTRA | <valor>
   priority: 'all', // all | high (>=4) | medium (3) | low (<=2)
-  tag: 'all', // all | NO_TAG | <id da tag>
+  tag: Object.freeze([]), // lista de NO_TAG e/ou ids de tag; vazia = qualquer. Várias = ticket com QUALQUER uma delas
 });
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base' });
@@ -23,8 +23,18 @@ export const normalizeText = (s) =>
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
 
+// Lista de valores de um filtro de seleção múltipla. Aceita o formato antigo (texto: 'all' | NO_TAG | id), então um
+// filtro salvo por uma versão anterior continua valendo. Sem repetidos e sem 'all'.
+export function toList(value) {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  return [...new Set(raw.filter((v) => typeof v === 'string' && v !== '' && v !== 'all'))];
+}
+
+// Devolve sempre um objeto novo (com `tag` novo), para quem recebe poder alterá-lo sem mexer nos padrões.
 export function mergeFilters(saved) {
-  return { ...DEFAULT_FILTERS, ...(saved && typeof saved === 'object' ? saved : {}) };
+  const f = { ...DEFAULT_FILTERS, ...(saved && typeof saved === 'object' ? saved : {}) };
+  f.tag = toList(f.tag);
+  return f;
 }
 
 // Valores disponíveis nos selects, tirados dos próprios tickets.
@@ -53,8 +63,8 @@ export function sanitizeFilters(filters, options) {
   } else if (f.extra !== 'all' && !options.extra.includes(f.extra)) {
     f.extra = 'all';
   }
-  // tag apagada desde que o filtro foi salvo: volta para "todas" (`options.tags` = ids das tags que existem)
-  if (options.tags && f.tag !== 'all' && f.tag !== NO_TAG && !options.tags.includes(f.tag)) f.tag = 'all';
+  // tag apagada desde que o filtro foi salvo: sai da seleção (`options.tags` = ids das tags que existem)
+  if (options.tags) f.tag = f.tag.filter((v) => v === NO_TAG || options.tags.includes(v));
   return f;
 }
 
@@ -88,11 +98,11 @@ export function matches(t, filters, isUnread = () => false, tagsOf = () => []) {
     if (f.priority === 'low' && !(p > 0 && p <= 2)) return false;
   }
 
-  const tags = f.tag !== 'all' || f.q.trim() ? tagsOf(t) : [];
-  if (f.tag === NO_TAG) {
-    if (tags.length) return false;
-  } else if (f.tag !== 'all' && !tags.some((d) => d.id === f.tag)) {
-    return false;
+  const tags = f.tag.length || f.q.trim() ? tagsOf(t) : [];
+  if (f.tag.length) {
+    // com várias escolhidas, basta casar com uma: "Sem tag" casa com o ticket sem nenhuma, as demais com a tag dele
+    const hit = tags.length ? tags.some((d) => f.tag.includes(d.id)) : f.tag.includes(NO_TAG);
+    if (!hit) return false;
   }
 
   const words = normalizeText(f.q).split(/\s+/).map((w) => w.replace(/^#/, '')).filter(Boolean);
@@ -112,6 +122,7 @@ export function activeFilterCount(filters, { panelOnly = false } = {}) {
   let n = 0;
   if (!panelOnly && f.q.trim()) n += 1;
   if (!panelOnly && f.unread) n += 1;
-  for (const k of ['status', 'role', 'entity', 'extra', 'priority', 'tag']) if (f[k] !== DEFAULT_FILTERS[k]) n += 1;
+  for (const k of ['status', 'role', 'entity', 'extra', 'priority']) if (f[k] !== DEFAULT_FILTERS[k]) n += 1;
+  if (f.tag.length) n += 1; // a seleção múltipla conta como um filtro só, não um por tag
   return n;
 }
