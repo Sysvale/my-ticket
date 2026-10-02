@@ -206,6 +206,32 @@ body.popup { width: 420px; max-height: 600px; display: flex; flex-direction: col
 .card .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card time { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .card .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* dados do GLPI: texto discreto (as tags da pessoa é que ganham cor). O ponto do status guarda a cor para bater o olho */
+.card .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.m-item { min-width: 0; overflow-wrap: anywhere; }
+.m-sep { opacity: .6; }
+.m-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--c, var(--muted));
+}
+.m-ok { --c: var(--ok); }
+.m-warn { --c: var(--warn); }
+.m-danger { --c: var(--danger); }
+.m-info { --c: var(--accent); }
+.m-prio.m-warn, .m-prio.m-danger { color: var(--c); font-weight: 600; }
 .card .last {
   margin: 0;
   color: var(--muted);

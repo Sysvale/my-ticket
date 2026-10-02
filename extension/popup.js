@@ -179,6 +179,21 @@ const tagsButton = (id) => h('button', {
 }, 'Tags');
 
 // ---------- cards da lista ----------
+// Hierarquia do card: as tags da pessoa são o destaque (chips coloridos, sempre na primeira linha). O que vem do GLPI
+// (status, prioridade, Status extra, entidade, papel) vai numa linha de texto discreto logo abaixo. Só o que pede
+// atenção (sem acesso, erro ao ler) continua sendo chip.
+function metaLine(t, status, priorityTone) {
+  const items = [
+    status ? h('span', { class: `m-item m-${status.tone}` }, h('span', { class: 'm-dot', 'aria-hidden': 'true' }), status.label) : null,
+    t.priority ? h('span', { class: `m-item m-prio${priorityTone ? ` m-${priorityTone}` : ''}` }, PRIORITY[t.priority] ?? `P${t.priority}`) : null,
+    t.extra ? h('span', { class: 'm-item', title: 'Status extra' }, `Extra: ${t.extra}`) : null,
+    t.entity ? h('span', { class: 'm-item', title: 'Entidade' }, t.entity) : null,
+    t.sources.length ? h('span', { class: 'm-item' }, t.sources.map((s) => SOURCE_LABEL[s] ?? s).join(', ')) : null,
+  ].filter(Boolean);
+  if (!items.length) return null;
+  return h('p', { class: 'meta' }, items.flatMap((el, i) => (i ? [h('span', { class: 'm-sep', 'aria-hidden': 'true' }, '·'), el] : [el])));
+}
+
 function card(t, user) {
   const unread = unreadEvents(t, user.readAt);
   const last = t.events.at(-1);
@@ -187,14 +202,9 @@ function card(t, user) {
 
   const chips = [
     ...tagsOfTicket(data.tags, t.id).map(tagChip),
-    status ? chip(status.label, status.tone) : null,
-    t.priority ? chip(PRIORITY[t.priority] ?? `P${t.priority}`, priorityTone) : null,
-    t.extra ? chip(`Extra: ${t.extra}`, 'accent') : null,
-    t.entity ? chip(t.entity, '', 'Entidade') : null,
-    ...t.sources.map((s) => chip(SOURCE_LABEL[s] ?? s)),
     t.unavailable ? chip('sem acesso', 'danger') : null,
     t.readError ? chip('erro ao ler', 'warn', 'O GLPI deu erro ao ler este ticket. Nova tentativa na próxima verificação.') : null,
-  ];
+  ].filter(Boolean);
 
   const actions = [tagsButton(t.id)];
   if (unread.length) {
@@ -228,7 +238,8 @@ function card(t, user) {
       h('span', { class: 'title' }, t.title)),
       h('time', {}, timeAgo(t.dateMod)),
       h('span', { class: 'chev', 'aria-hidden': 'true' }, '›')),
-  h('div', { class: 'chips' }, chips),
+  chips.length ? h('div', { class: 'chips' }, chips) : null,
+  metaLine(t, status, priorityTone),
   last ? h('p', { class: 'last' }, describeEvent(last)) : null,
   openTagsId === t.id ? tagPanel(t.id) : null,
   h('div', { class: 'actions' }, actions));

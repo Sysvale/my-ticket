@@ -321,9 +321,17 @@ try {
       card.scrollIntoView({ block: 'center' });
       const at = (el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); };
       const action = card.querySelector('.actions button');
-      return { chips: at(card.querySelector('.chips'))?.classList.contains('card-open'), action: !action || at(action) === action };
+      return { chips: at(card.querySelector('.meta'))?.classList.contains('card-open'), action: !action || at(action) === action };
     })()`);
-    S.check('Clicar em qualquer ponto do card (ex.: nos chips) atinge o botão do card', hit.chips === true);
+    S.check('Clicar em qualquer ponto do card (ex.: na linha de dados do GLPI) atinge o botão do card', hit.chips === true);
+    // hierarquia: sem tags, o card não tem chip nenhum; status, prioridade, Extra, entidade e papel são texto discreto
+    const hier = await popup.eval(`(() => {
+      const card = document.querySelector('.card.unread');
+      return { chips: card.querySelectorAll('.chip').length, hasRow: card.querySelector('.chips') !== null, meta: card.querySelector('.meta')?.textContent ?? '' };
+    })()`);
+    S.check('Card sem tags não tem chips coloridos nem linha de chips vazia', hier.chips === 0 && hier.hasRow === false, JSON.stringify(hier));
+    S.check('Status, prioridade, Extra, entidade e papel ficam numa linha de texto discreto',
+      ['Em atendimento', 'Alta', 'Extra: Em análise', 'Município Beta', 'atribuído'].every((x) => hier.meta.includes(x)), hier.meta);
     S.check('Botões de ação ficam acima da área clicável do card', hit.action === true);
   }
 
