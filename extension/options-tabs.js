@@ -1,5 +1,5 @@
 // Abas da página de Opções (lógica pura em src/tabs.js). Conexão e Avisos fazem parte do formulário e valem com
-// "Salvar"; Tags e Dados locais agem na hora, então o formulário (com a barra de salvar) some nessas duas.
+// "Salvar"; Aparência, Tags e Dados locais agem na hora, então o formulário (com a barra de salvar) some nelas.
 // O link "#tags" abre a aba Tags, e a aba escolhida vai para o endereço (recarregar mantém a aba).
 import { DEFAULT_TAB, FORM_TABS, TABS, tabAfterKey, tabFromHash } from './src/tabs.js';
 
@@ -16,7 +16,7 @@ export function selectTab(id, { focus = false, updateHash = true } = {}) {
     button.tabIndex = on ? 0 : -1; // só a aba atual entra na ordem do Tab; as setas andam entre elas
     $(`tab-${t}`).hidden = !on;
   }
-  // Conexão e Avisos são painéis dentro do formulário; para Tags e Dados o formulário inteiro (e a barra de salvar) some.
+  // Conexão e Avisos são painéis dentro do formulário; para Aparência, Tags e Dados o formulário inteiro (e a barra de salvar) some.
   $('form').hidden = !FORM_TABS.has(tab);
   if (focus) $(`tabbtn-${tab}`).focus();
   if (updateHash && location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);

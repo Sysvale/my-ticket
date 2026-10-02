@@ -15,8 +15,10 @@
   --tag-teal: #0f766e;
   --tag-pink: #be185d;
 }
+/* Tema escuro: pelo sistema (sem data-theme) ou escolhido nas Opções (data-theme="dark"). As duas listas de variáveis
+   precisam ser iguais (test/theme-css.test.js confere). data-theme="light" força o claro mesmo com o sistema escuro. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12151b;
     --surface: #1a1e26;
     --text: #e7eaf0;
@@ -32,6 +34,24 @@
     --tag-teal: #4fd1c5;
     --tag-pink: #f472b6;
   }
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12151b;
+  --surface: #1a1e26;
+  --text: #e7eaf0;
+  --muted: #98a2b3;
+  --border: #2a303b;
+  --accent: #7ba4ff;
+  --on-accent: #0b1220;
+  --ok: #4cc38a;
+  --warn: #f0b04a;
+  --danger: #ff7a7a;
+  --info: #7ba4ff;
+  --tag-purple: #b79bff;
+  --tag-teal: #4fd1c5;
+  --tag-pink: #f472b6;
 }
 
 * { box-sizing: border-box; }
@@ -206,6 +226,32 @@ body.popup { width: 420px; max-height: 600px; display: flex; flex-direction: col
 .card .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card time { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .card .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* dados do GLPI: texto discreto (as tags da pessoa é que ganham cor). O ponto do status guarda a cor para bater o olho */
+.card .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.m-item { min-width: 0; overflow-wrap: anywhere; }
+.m-sep { opacity: .6; }
+.m-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--c, var(--muted));
+}
+.m-ok { --c: var(--ok); }
+.m-warn { --c: var(--warn); }
+.m-danger { --c: var(--danger); }
+.m-info { --c: var(--accent); }
+.m-prio.m-warn, .m-prio.m-danger { color: var(--c); font-weight: 600; }
 .card .last {
   margin: 0;
   color: var(--muted);
@@ -605,7 +651,8 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 .tag-gray { --c: var(--muted); }
 /* cor em hexadecimal: as variáveis vêm inline (src/dom.js tagColor), já com o contraste ajustado para cada tema */
 .tag-custom { --c: var(--c-light); }
-@media (prefers-color-scheme: dark) { .tag-custom { --c: var(--c-dark); } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag-custom { --c: var(--c-dark); } }
+:root[data-theme="dark"] .tag-custom { --c: var(--c-dark); }
 .chip.tag { font-weight: 600; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
 .chips-inline { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 
@@ -685,3 +732,102 @@ body.guide { max-width: 980px; margin: 28px auto; padding: 0 16px 56px; font-siz
 }
 .options .loss-box p { margin: 6px 0; }
 .options .loss-box ul { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; }
+
+/* ---------- aba "Aparência" das Opções ---------- */
+.options fieldset.radios { margin: 14px 0; padding: 0; border: 0; }
+.options fieldset.radios legend { margin-bottom: 4px; padding: 0; font-size: 12px; font-weight: 600; }
+.options fieldset.radios label.check input { margin: 0 8px 0 0; vertical-align: -2px; }
+/* interruptor (checkbox com role="switch"): o campo fica invisível mas focável, e a trilha mostra o estado */
+.switch { display: flex; align-items: flex-start; gap: 12px; margin: 14px 0; cursor: pointer; }
+.switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.switch .track {
+  flex: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  transition: background .15s, border-color .15s;
+}
+.switch .track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform .15s, background .15s;
+}
+.switch input:checked + .track { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.switch input:checked + .track::after { background: var(--accent); transform: translateX(16px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch .text { display: grid; gap: 2px; }
+.switch .note { font-weight: 400; }
+@media (prefers-reduced-motion: reduce) { .switch .track, .switch .track::after { transition: none; } }
+.preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.preview .note { margin-right: 4px; }
+
+/* ---------- efeito neon (Opções → Aparência) ---------- */
+/* `data-neon` só existe com o tema escuro em uso (rootAttributes, em src/appearance.js). O fundo fica mais fundo e as cores
+   mais vivas. A cor de uma tag em hexadecimal já vem legível para o escuro de antes (src/color.js), e este fundo é ainda
+   mais escuro: o contraste só aumenta (test/theme-css.test.js confere as cores daqui). */
+:root[data-neon] {
+  --bg: #0a0e13;
+  --surface: #101720;
+  --text: #e6edf3;
+  --muted: #8b98a9;
+  --border: #1c2733;
+  --accent: #22d3ee;
+  --on-accent: #04222b;
+  --ok: #4ade80;
+  --warn: #fbbf4a;
+  --danger: #ff6b6b;
+  --info: #38bdf8;
+  --tag-purple: #c4a5ff;
+  --tag-teal: #2dd4bf;
+  --tag-pink: #f472b6;
+}
+/* tags e chips coloridos: aro + brilho da própria cor (o chip cinza continua liso) */
+:root[data-neon] .chip.tag, :root[data-neon] .chip.ok, :root[data-neon] .chip.warn,
+:root[data-neon] .chip.danger, :root[data-neon] .chip.info, :root[data-neon] .chip.accent {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 65%, transparent), 0 0 9px color-mix(in srgb, var(--c) 38%, transparent);
+}
+:root[data-neon] .btn.primary { box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent); }
+:root[data-neon] .btn:not(:disabled):hover { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 32%, transparent); }
+:root[data-neon] .btn.primary:not(:disabled):hover { box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent); }
+:root[data-neon] .btn.link:hover { box-shadow: none; }
+:root[data-neon] input:focus-visible { border-color: var(--accent); }
+:root[data-neon] input:focus-visible, :root[data-neon] select:focus-visible, :root[data-neon] button:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+:root[data-neon] .card { border-color: color-mix(in srgb, var(--accent) 16%, var(--border)); }
+:root[data-neon] .card:hover { box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent); }
+:root[data-neon] .card.unread { border-left-color: var(--accent); box-shadow: -4px 0 12px -4px color-mix(in srgb, var(--accent) 60%, transparent); }
+:root[data-neon] .icon { color: var(--accent); }
+:root[data-neon] .icon.is-paused { color: var(--warn); }
+:root[data-neon] .icon:disabled { color: var(--muted); }
+:root[data-neon] .icon:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+:root[data-neon] .icon svg { filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 60%, transparent)); }
+:root[data-neon] .icon:disabled svg { filter: none; }
+:root[data-neon] .tog[aria-pressed="true"], :root[data-neon] .tog[aria-expanded="true"] { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent); }
+:root[data-neon] .tog .count { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+:root[data-neon] .pk-pop { box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 22%, transparent); }
+:root[data-neon] .tagopt[aria-pressed="true"] { box-shadow: 0 0 10px color-mix(in srgb, var(--c, var(--muted)) 55%, transparent); }
+:root[data-neon] .tag-dot, :root[data-neon] .m-dot { box-shadow: 0 0 6px var(--c, var(--muted)); }
+:root[data-neon] .switch input:checked + .track { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent); }
+:root[data-neon] ::-webkit-scrollbar { width: 8px; height: 8px; }
+:root[data-neon] ::-webkit-scrollbar-track { background: transparent; }
+:root[data-neon] ::-webkit-scrollbar-thumb { border-radius: 4px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }

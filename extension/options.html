@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MyTicket — Opções</title>
   <link rel="stylesheet" href="ui.css">
+  <script type="module" src="appearance-boot.js"></script>
 </head>
 <body class="options">
   <h1 class="sr">MyTicket</h1>
@@ -14,6 +15,7 @@
   <nav class="tabs" role="tablist" aria-label="Seções das opções">
     <button type="button" role="tab" id="tabbtn-conexao" aria-controls="tab-conexao" aria-selected="true">Conexão</button>
     <button type="button" role="tab" id="tabbtn-avisos" aria-controls="tab-avisos" aria-selected="false" tabindex="-1">Avisos</button>
+    <button type="button" role="tab" id="tabbtn-aparencia" aria-controls="tab-aparencia" aria-selected="false" tabindex="-1">Aparência</button>
     <button type="button" role="tab" id="tabbtn-tags" aria-controls="tab-tags" aria-selected="false" tabindex="-1">Tags</button>
     <button type="button" role="tab" id="tabbtn-dados" aria-controls="tab-dados" aria-selected="false" tabindex="-1">Dados locais</button>
   </nav>
@@ -134,6 +136,36 @@
     </div>
   </form>
 
+  <div id="tab-aparencia" role="tabpanel" aria-labelledby="tabbtn-aparencia" hidden>
+  <section id="appearance">
+    <h2>Aparência</h2>
+    <p class="note">Vale na hora, sem “Salvar”, no popup, nas Opções e no Guia. Fica só neste navegador.</p>
+
+    <fieldset class="field radios">
+      <legend>Tema</legend>
+      <label class="check"><input type="radio" name="theme" value="auto"> <strong>Automático</strong> — segue o tema do sistema</label>
+      <label class="check"><input type="radio" name="theme" value="light"> <strong>Claro</strong></label>
+      <label class="check"><input type="radio" name="theme" value="dark"> <strong>Escuro</strong></label>
+    </fieldset>
+
+    <label class="switch">
+      <input type="checkbox" role="switch" id="neon">
+      <span class="track" aria-hidden="true"></span>
+      <span class="text"><strong>Efeito neon</strong>
+        <span class="note">Cores vivas e brilho nas tags, nos botões e nos cartões. Só aparece no tema escuro.</span></span>
+    </label>
+
+    <div class="preview" aria-hidden="true">
+      <span class="note">Prévia</span>
+      <span class="chip tag tag-amber">Em homologação · há 1 d</span>
+      <span class="chip tag tag-pink">v4.7.x</span>
+      <span class="chip tag tag-blue">Aprovada</span>
+      <span class="chip tag tag-green">Cliente avisado</span>
+      <span class="btn primary">Acompanhar</span>
+    </div>
+  </section>
+  </div>
+
   <div id="tab-tags" role="tabpanel" aria-labelledby="tabbtn-tags" hidden>
   <section id="tags" class="tags-manager">
     <h2>Tags dos tickets</h2>
@@ -198,5 +230,6 @@
 
   <script type="module" src="options.js"></script>
   <script type="module" src="options-tags.js"></script>
+  <script type="module" src="options-appearance.js"></script>
 </body>
 </html>

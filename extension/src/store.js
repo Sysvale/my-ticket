@@ -2,10 +2,12 @@
 //   config  -> escrita pela página de opções
 //   user    -> escrita pela UI (tickets manuais, "lido em")
 //   state   -> escrita só pelo poller (cache de tickets, eventos)
+//   appearance -> escrita pela aba "Aparência" das Opções (tema, neon)
 // O session_token do GLPI fica em storage.session (some ao fechar o navegador).
 import { mergeFilters } from './filters.js';
 import { emptyState } from './poller.js';
 import { normalizeTags } from './tags.js';
+import { normalizeAppearance } from './appearance.js';
 
 export const DEFAULT_CONFIG = {
   baseUrl: '', // cada pessoa informa o endereço do seu GLPI nas Opções
@@ -89,6 +91,22 @@ export function updateTags(mutate) {
     if (mutate(tags) === false) return tags;
     await chrome.storage.local.set({ tags });
     return tags;
+  });
+}
+
+// Aparência (src/appearance.js): tema e neon. Escrita só pela aba "Aparência" das Opções; as demais páginas só leem.
+export async function getAppearance() {
+  const { appearance } = await chrome.storage.local.get('appearance');
+  return normalizeAppearance(appearance);
+}
+
+// `mutate` altera o objeto; se devolver `false`, nada mudou e nada é gravado.
+export function updateAppearance(mutate) {
+  return serialized('appearance', async () => {
+    const appearance = await getAppearance();
+    if (mutate(appearance) === false) return appearance;
+    await chrome.storage.local.set({ appearance });
+    return appearance;
   });
 }
 

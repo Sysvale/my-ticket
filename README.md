@@ -25,6 +25,9 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
   têm um campo de busca dentro da lista (sem diferenciar acentos), para achar a opção quando são muitas;
   **Tag** aceita **várias escolhas** ao mesmo tempo (aparece o ticket que tiver *qualquer uma* delas, e “Sem tag”
   pode entrar na mistura). Funciona só pelo teclado: ↓/↑ andam pela lista, Enter marca, Esc fecha.
+- **Aparência:** em Opções → **Aparência**, tema **Automático** (segue o sistema), **Claro** ou **Escuro**, e o
+  interruptor do **efeito neon** (cores vivas e brilho nas tags, botões e cartões, só no tema escuro). Vale na hora, em
+  todas as telas, e fica só neste navegador. Padrão: automático e neon desligado.
 - **Aviso sonoro:** três sons para escolher (suave, duplo bip, alerta) e volume ajustável, com botão
   **Ouvir**. Toca uma vez por verificação, mesmo com vários tickets; com o som ligado, o som padrão do
   Windows para os avisos da extensão fica desativado, para não tocar dois. Como o service worker do MV3
@@ -136,6 +139,7 @@ importe e apague a cópia (ele contém tokens).
 |---|---|---|
 | **Conexão** | URL e tokens do GLPI, o que acompanhar, intervalo e campo do Status extra | barra **Salvar** no pé da janela |
 | **Avisos** | quando avisar, som, chamar a atenção, ocultar conteúdo | barra **Salvar** no pé da janela |
+| **Aparência** | tema (automático, claro ou escuro) e o interruptor do efeito neon | na hora (sem barra) |
 | **Tags** | criar, renomear, recolorir, reordenar, apagar, exportar/importar | na hora (sem barra) |
 | **Dados locais** | apagar credenciais e dados, e o aviso de quando as tags se perdem | na hora (sem barra) |
 
@@ -223,7 +227,9 @@ extension/
   background.js      service worker (Chrome/Edge) ou página de eventos (Firefox): alarme, polling, notificações, badge
   popup.*            painel de tickets
   options.*          credenciais e preferências
-  options-tabs.js    abas das Opções (Conexão, Avisos, Tags, Dados locais; o # do endereço escolhe a aba)
+  options-tabs.js    abas das Opções (Conexão, Avisos, Aparência, Tags, Dados locais; o # do endereço escolhe a aba)
+  options-appearance.js aba "Aparência" das Opções (tema e neon, salvos na hora)
+  appearance-boot.js aplica o tema e o neon em <html> (popup, Opções e Guia) e acompanha a mudança na hora
   options-tags.js    aba "Tags" das Opções (gerenciar, cor em hexadecimal, exportar/importar)
   src/glpi.js        cliente da API (sessão, retry em 401, search)
   src/poller.js      lógica de detecção (pura, testável)
@@ -239,6 +245,7 @@ extension/
   src/attention.js   piscar na barra de tarefas / aviso fixo
   src/sounds.js      catálogo e validação dos sons
   src/samples.js     notificações de exemplo (dados fictícios)
+  src/appearance.js  tema e neon (lógica pura: valores válidos e o que vai em <html>)
   src/toast.js       aviso rápido (toast) no canto da tela: retorno do “Salvar” nas Opções
   src/tags.js        tags personalizadas (lógica pura: padrões, etapa única, limites, exportar/importar)
   src/color.js       cor das tags: valida #rrggbb e ajusta o contraste por tema (lógica pura)
