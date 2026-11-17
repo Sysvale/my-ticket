@@ -68,11 +68,11 @@ test('usuário que não dá para consultar vira "Usuário #id"; erro de rede abo
 test('usa o cache de nomes recebido sem alterá-lo', async () => {
   let lookups = 0;
   const api = fakeApi({ userName: async (uid) => { lookups += 1; return USERS[uid]; } });
-  const users = { 20: 'Analista (cache)' };
+  const users = { 20: 'Analista A (cache)' };
   const d = await fetchTicketDetails({ api, id: 1, meId: 7, users });
-  assert.equal(d.timeline.find((m) => m.id === 12).author, 'Analista (cache)');
+  assert.equal(d.timeline.find((m) => m.id === 12).author, 'Analista A (cache)');
   assert.equal(lookups, 1); // só a Ana Paula (solução) precisou ser consultada
-  assert.deepEqual(users, { 20: 'Analista (cache)' }); // cache do chamador intacto
+  assert.deepEqual(users, { 20: 'Analista A (cache)' }); // cache do chamador intacto
 });
 
 test('avisa quando há mais acompanhamentos do que o limite mostrado', async () => {

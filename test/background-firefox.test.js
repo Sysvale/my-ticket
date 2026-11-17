@@ -86,14 +86,14 @@ test('exemplos de notificação: os 7 são criados só com as opções que o Fir
   assert.deepEqual(r, { ok: true, count: 7, permission: 'granted' });
   assert.equal(created.length, 7);
   assert.ok(created.every((c) => Object.keys(c.opts).every((k) => ['type', 'title', 'message', 'iconUrl'].includes(k))));
-  assert.equal(created[0].opts.message, 'Analista A: Segue o log do erro e o print da tela de relatórios.\nMunicípio Beta');
+  assert.equal(created[0].opts.message, 'Analista A: Segue o log do erro e o print da tela de relatórios.\nMunicípio Alfa');
   assert.equal(created[6].opts.message, '7 tickets com novidades');
 });
 
 test('"ocultar conteúdo" no Firefox: a entidade não aparece em lugar nenhum', async () => {
   created.length = 0;
   await send({ type: 'demo-notifications', hideContent: true, sound: { enabled: false, name: 'chime', volume: 0.6 } });
-  assert.doesNotMatch(JSON.stringify(created.map((c) => c.opts)), /Município Beta|Município Gama�|Município Alfa/);
+  assert.doesNotMatch(JSON.stringify(created.map((c) => c.opts)), /Município Alfa|Município Beta|Município Gama/);
   assert.equal(created[0].opts.message, 'Analista A respondeu');
 });
 
@@ -124,7 +124,7 @@ test('som desligado ou volume 0: não toca nada', async () => {
 
 test('barra de endereços no Firefox: a descrição da sugestão é texto puro (sem escapar & e <)', async () => {
   stored.config = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
-  stored.state = { tickets: { 7: { id: 7, title: 'Agenda & fila <urgente>', entity: 'Município Beta', dateMod: '2026-09-29 10:00:00' } } };
+  stored.state = { tickets: { 7: { id: 7, title: 'Agenda & fila <urgente>', entity: 'Município Alfa', dateMod: '2026-09-29 10:00:00' } } };
   let list;
   await L.omniChanged('agenda', (l) => { list = l; });
   assert.deepEqual(list, [{ content: '7', description: '#7 — Agenda & fila <urgente>' }]);

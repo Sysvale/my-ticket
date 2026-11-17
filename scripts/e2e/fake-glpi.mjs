@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const TOKENS = { app: 'APP-TOKEN-DEMO', user: 'USER-TOKEN-DEMO' };
-const SESSION = 'SESSION-DEMO-1';
+export const SESSION = 'SESSION-DEMO-1';
 
 const pad = (n) => String(n).padStart(2, '0');
 export const fmt = (ms) => {
@@ -68,12 +68,12 @@ export function demoWorld() {
   const t0 = Date.now();
   w.addTicket(159919, 'Relatório mensal não gera no processamento (fila parada há horas)', {
     priority: 4,
-    content: '&lt;p&gt;O relatório mensals de Município Beta não gera desde ontem à noite.&lt;/p&gt;&lt;p&gt;A fila do processamento está parada.&lt;/p&gt;',
+    content: '&lt;p&gt;O relatório mensal de Município Alfa não gera desde ontem à noite.&lt;/p&gt;&lt;p&gt;A fila do processamento está parada.&lt;/p&gt;',
     time_to_resolve: fmt(t0 + 5 * 3_600_000),
   });
   w.addTicket(159885, 'Bloqueio de agenda não libera fila do processamento', { priority: 5 });
   w.addTicket(159321, 'Atualização cadastral não persiste', { status: 4 });
-  w.entities = { 159919: 'Município Beta', 159885: 'Município Gama�', 159321: 'Município Alfa', 159930: 'Município Alfa' };
+  w.entities = { 159919: 'Município Alfa', 159885: 'Município Beta', 159321: 'Município Gama', 159930: 'Município Gama' };
   w.extra = { 159919: 'Em análise', 159885: 'Em análise', 159321: '' };
   w.roles = { assigned: [159919], observer: [159885], requester: [] }; // 159321 só entra se for acompanhado à mão
   w.followups[159919] = [

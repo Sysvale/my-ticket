@@ -10,7 +10,7 @@ test('exemplos cobrem cada tipo de notificação, com o formato das reais', () =
 
   assert.equal(s.followup.title, '#1001 Relatório mensal não gera no processamento');
   assert.equal(s.followup.message, 'Analista A: Segue o log do erro e o print da tela de relatórios.');
-  assert.equal(s.followup.context, 'Município Beta');
+  assert.equal(s.followup.context, 'Município Alfa');
   assert.equal(s.solution.message, 'Ana Paula Ribeiro propôs solução: Perfil liberado. Pode testar e confirmar?');
   assert.equal(s.extra.message, 'Status extra: Em análise → Devolvido');
   assert.equal(s.status.message, 'Status: Em atendimento → Pendente');
@@ -30,7 +30,7 @@ test('com ocultar conteúdo, os exemplos não trazem título nem texto', () => {
   assert.equal(s.multi.message, 'Analista B respondeu  (+1)');
   const dump = JSON.stringify(list);
   assert.doesNotMatch(dump, /processamento|log do erro|Perfil liberado|reproduzir|Duplicidade/);
-  assert.doesNotMatch(dump, /Município Beta|Município Gama�|Município Alfa/); // a entidade também fica de fora
+  assert.doesNotMatch(dump, /Município Alfa|Município Beta|Município Gama/); // a entidade também fica de fora
   assert.ok(list.every((n) => !n.context));
   // eventos que não são texto livre continuam iguais
   assert.equal(s.extra.message, 'Status extra: Em análise → Devolvido');

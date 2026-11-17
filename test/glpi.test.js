@@ -103,7 +103,7 @@ test('searchTickets normaliza as linhas (HTML, arrays, ids numéricos)', async (
           1: 'Erro &amp; falha',
           2: 159919,
           19: '2026-09-29 10:05:00',
-          80: 'Município Beta &gt; Saúde',
+          80: 'Município Alfa &gt; Saúde',
           90001: ['Devolvido'],
         },
       ],
@@ -112,7 +112,7 @@ test('searchTickets normaliza as linhas (HTML, arrays, ids numéricos)', async (
   const api = createClient({ ...CFG, fetchImpl });
   const rows = await api.searchTickets({ criteria: [{ field: FIELD.ID, value: 159919 }], extraField: 90001 });
   assert.deepEqual(rows, [
-    { id: 159919, title: 'Erro & falha', dateMod: '2026-09-29 10:05:00', entity: 'Município Beta > Saúde', extra: 'Devolvido' },
+    { id: 159919, title: 'Erro & falha', dateMod: '2026-09-29 10:05:00', entity: 'Município Alfa > Saúde', extra: 'Devolvido' },
   ]);
   assert.match(url, /forcedisplay\[4\]=90001/);
 });

@@ -22,7 +22,7 @@ export const DEFAULT_CONFIG = {
   hideContent: false, // notificações sem título/texto e sem guardar o texto das respostas
   sound: { enabled: true, name: 'chime', volume: 0.6 }, // aviso sonoro (tocado pela página offscreen)
   attention: { flash: true, sticky: false }, // piscar na barra de tarefas / aviso que não some sozinho
-  extraField: 90001, // search option do Status extra (plugin Fields)
+  extraField: 0, // search option do Status extra (plugin Fields)
 };
 
 export function mergeConfig(c = {}) {

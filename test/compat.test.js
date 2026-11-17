@@ -15,8 +15,8 @@ const TOAST = {
   type: 'basic',
   iconUrl: 'x://i.png',
   title: '#1 Título',
-  message: 'Analista: oi',
-  contextMessage: 'Município Beta',
+  message: 'Analista A: oi',
+  contextMessage: 'Município Alfa',
   priority: 1,
   silent: true,
   requireInteraction: true,
@@ -36,13 +36,13 @@ test('Firefox: só type, title, message e iconUrl (o resto faria a criação fal
 });
 
 test('Firefox: a entidade (contextMessage) vai para uma segunda linha da mensagem', () => {
-  assert.equal(notificationOptionsFor(TOAST, { firefox: true }).message, 'Analista: oi\nMunicípio Beta');
+  assert.equal(notificationOptionsFor(TOAST, { firefox: true }).message, 'Analista A: oi\nMunicípio Alfa');
 });
 
 test('Firefox: sem entidade (ex.: "ocultar conteúdo"), a mensagem não ganha nada', () => {
   const hidden = { ...TOAST, contextMessage: undefined };
-  assert.equal(notificationOptionsFor(hidden, { firefox: true }).message, 'Analista: oi');
-  assert.equal(notificationOptionsFor({ ...TOAST, contextMessage: '' }, { firefox: true }).message, 'Analista: oi');
+  assert.equal(notificationOptionsFor(hidden, { firefox: true }).message, 'Analista A: oi');
+  assert.equal(notificationOptionsFor({ ...TOAST, contextMessage: '' }, { firefox: true }).message, 'Analista A: oi');
 });
 
 test('Firefox: não altera o objeto original', () => {
