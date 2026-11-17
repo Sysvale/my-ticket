@@ -248,6 +248,58 @@ force-push. O caminho seguro é um **repositório novo**, criado a partir da ár
 6. Troque na ficha da loja (Listagem → URLs) a página inicial, o suporte e a política de privacidade pelas URLs do
    repositório novo e envie uma nova versão para revisão.
 
+## 10. Firefox (addons.mozilla.org)
+
+Mesmo código; só o manifest muda (gerado por `scripts/firefox-manifest.mjs`: `background.scripts`, sem `offscreen`, com o
+ID `myticket@sysvale.com` e `data_collection_permissions: none`). A conta é gratuita.
+
+1. `npm test && npm run build:firefox:zip` → `dist/my-ticket-firefox-<versão>.zip`.
+2. 👤 Antes de enviar, valide com a ferramenta da Mozilla (baixa pacote da internet, por isso é com você):
+   `npm run build:firefox && npx web-ext lint --source-dir dist/firefox`. Esperado: 0 erros (os avisos que restam são de APIs
+   que o código só usa quando existem). Se acusar algo no `content_security_policy`, me traga a mensagem.
+3. 👤 https://addons.mozilla.org/developers/ → **Enviar um novo add-on** → **Neste site** (listado) → envie o zip.
+   - **"Você usa ferramentas de build, minificação ou ofuscação?"** → **Não**. O zip é o código-fonte (não há etapa de build).
+4. Ficha (os textos são os do passo 6):
+   - **Nome:** `MyTicket` · **Resumo (até 250):** `Notificações e painel dos seus tickets do GLPI, sem depender de e-mail.`
+   - **Descrição:** a mesma da Chrome Web Store. **Categoria:** *Alerts & Updates* (e, se quiser uma segunda, *Other*).
+   - **E-mail e site de suporte:** os mesmos do passo 6. **Política de privacidade:** cole o texto do `PRIVACY.md`.
+   - **Licença:** escolha a que vai valer quando o repositório abrir (AGPL-3.0, se constar da lista; senão licença
+     personalizada). Enquanto o repositório for privado, *All Rights Reserved* é aceito.
+   - **Capturas de tela:** `store/screenshot-*-1280x800.png`. **Ícone:** o do pacote (`icons/icon128.png`).
+   - **Notas para o revisor** (cole a versão longa das instruções do passo 6 e acrescente): `O pacote é o código-fonte,
+     sem build, minificação nem dependências. Para testar: web-ext run, ou about:debugging → Carregar extensão temporária.`
+5. Enviar. A revisão da Mozilla costuma ser mais rápida que a do Chrome e a primeira versão pode ser aprovada
+   automaticamente, com revisão manual depois.
+6. Depois de aprovada, o link do add-on é `https://addons.mozilla.org/firefox/addon/<slug>/`. Atualizações: suba a versão
+   (passo 2), gere o zip de novo e envie em **Enviar nova versão**.
+
+Só para uso próprio, sem listar: escolha **Por conta própria** no passo 3 e a Mozilla devolve um `.xpi` assinado, que o
+Firefox comum instala.
+
+No Firefox, o aviso **não tem os botões** "Abrir"/"Marcar como lido" e não fica fixo (limite da API do navegador); está
+no README e vale mencionar na descrição se alguém perguntar.
+
+## 11. Microsoft Edge (Partner Center)
+
+O Edge carrega **o mesmo zip do Chrome** (`npm run build:chrome`), sem nenhuma mudança. Conta gratuita.
+
+1. 👤 https://partner.microsoft.com/dashboard/microsoftedge → registre-se como desenvolvedor (pessoa ou empresa).
+2. **Criar nova extensão** → envie `dist/my-ticket-<versão>.zip`.
+3. **Disponibilidade:** Pública (ou *Oculta*, o equivalente de "não listada", para testar antes) · **Mercados:** todos.
+4. **Propriedades:** categoria *Produtividade* · **URL da política de privacidade:** a mesma do Chrome · site e suporte: os mesmos
+   do passo 6 · **Esta extensão usa código remoto?** Não.
+5. **Listagem (pt-BR):** a mesma descrição (o Edge pede no mínimo 250 caracteres; a do Chrome passa).
+   - **Logo da extensão: `store/logo-300x300.png`** (o Edge exige no mínimo 300×300; o ícone de 128 não serve).
+   - **Capturas de tela:** `store/screenshot-*-1280x800.png` · **Bloco promocional pequeno:** `store/promo-440x280.png` ·
+     **Grande:** `store/marquee-1400x560.png` · **Vídeo:** o link do YouTube.
+   - **Termos de pesquisa (até 7):** `glpi`, `tickets`, `chamados`, `notificações`, `helpdesk`, `suporte`, `itsm`.
+6. **Notas para certificação** (até 2000 caracteres): cole a versão longa das instruções do passo 6.
+7. Enviar para publicação. A revisão leva alguns dias úteis. Atualização: suba a versão, gere o zip e envie em
+   **Atualizar** na mesma extensão.
+
+Quem usa Edge (ou Brave, Opera, Vivaldi) também consegue instalar direto da Chrome Web Store; a loja do Edge só
+facilita para quem não sabe disso.
+
 ## Checklist final
 
 - [ ] `npm test` verde

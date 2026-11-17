@@ -31,11 +31,18 @@ export function buildChrome(outFile, { src = SRC } = {}) {
   for (const s of Object.values(manifest.icons)) {
     if (!existsSync(join(src, s))) throw new Error(`ícone ausente: ${s}`);
   }
+  zipDir(src, out);
+  return { out, version: manifest.version };
+}
+
+// Zipa o conteúdo de `dir` (manifest.json na raiz do zip), sem lixo de sistema. Usado pelo Chrome/Edge e pelo Firefox.
+export function zipDir(dir, outFile) {
+  const out = resolve(outFile);
   mkdirSync(dirname(out), { recursive: true });
   rmSync(out, { force: true });
   // -X: sem atributos extras; -r: recursivo; ignora lixo de sistema.
-  execFileSync('zip', ['-X', '-r', '-q', out, '.', '-x', '*.DS_Store', '-x', '*Thumbs.db'], { cwd: src });
-  return { out, version: manifest.version };
+  execFileSync('zip', ['-X', '-r', '-q', out, '.', '-x', '*.DS_Store', '-x', '*Thumbs.db'], { cwd: dir });
+  return out;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -49,7 +56,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const { out, version: v } = buildChrome(target);
     console.log(`Gerado: ${out} (versão ${v})`);
-    console.log('Envie este arquivo em https://chrome.google.com/webstore/devconsole (veja guia-publish.md).');
+    console.log('Chrome: https://chrome.google.com/webstore/devconsole · Edge: https://partner.microsoft.com/dashboard/microsoftedge (o mesmo zip). Veja guia-publish.md.');
   } catch (e) {
     console.error(`ERRO: ${e.message}`);
     process.exit(1);

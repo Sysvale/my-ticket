@@ -106,9 +106,8 @@ version of 2 or lower”. Por isso o manifest do Firefox é **gerado** a partir 
 
 ```bash
 npm run build:firefox                                   # gera dist/firefox
-npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
 npm run build:firefox -- --out /mnt/c/Users/<usuário>/MyTicket/extension-firefox   # WSL: direto no disco do Windows
-npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
+npm run build:firefox:zip                               # dist/my-ticket-firefox-<versão>.zip, o que se envia ao addons.mozilla.org
 ```
 
 Depois, no Firefox: `about:debugging#/runtime/this-firefox` → **Carregar extensão temporária…** → o `manifest.json` da pasta
@@ -321,7 +320,8 @@ npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
 npm run sync:win  # copia extension/ para o disco do Windows (WSL → Chrome do Windows)
 npm run build:firefox   # gera dist/firefox, a pasta que o Firefox carrega (--out <pasta> escolhe outra)
-npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
+npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store e para o Edge (veja guia-publish.md)
+npm run build:firefox:zip   # gera dist/my-ticket-firefox-<versão>.zip para o addons.mozilla.org
 npm run e2e       # teste visual ponta a ponta (Chromium + GLPI simulado) → docs/e2e/index.html
 ```
 

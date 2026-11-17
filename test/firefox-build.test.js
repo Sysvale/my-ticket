@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GECKO, toFirefoxManifest } from '../scripts/firefox-manifest.mjs';
-import { buildFirefox } from '../scripts/build-firefox.mjs';
+import { buildFirefox, buildFirefoxZip } from '../scripts/build-firefox.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCRIPT = join(ROOT, 'scripts', 'build-firefox.mjs');
@@ -111,4 +111,21 @@ test('CLI: --out escolhe a pasta; sem valor ou com pasta inválida sai com erro'
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+test('buildFirefoxZip: manifest do Firefox na raiz do zip, sem offscreen e sem arquivos de dev', () => {
+  const out = join(tmp(), 'ff.zip');
+  buildFirefoxZip(out);
+  const lista = execFileSync('unzip', ['-Z1', out], { encoding: 'utf8' }).split('\n');
+  assert.ok(lista.includes('manifest.json') && lista.includes('background.js') && lista.includes('icons/icon128.png'));
+  assert.ok(!lista.some((f) => /test|node_modules|\.git/.test(f)));
+  const ff = JSON.parse(execFileSync('unzip', ['-p', out, 'manifest.json'], { encoding: 'utf8' }));
+  assert.equal(ff.browser_specific_settings.gecko.id, GECKO.id);
+  assert.equal(ff.version, chrome.version);
+  assert.deepEqual(ff.background, { scripts: ['background.js'], type: 'module' });
+  assert.ok(!ff.permissions.includes('offscreen'));
+});
+
+test('buildFirefoxZip recusa gravar dentro de extension/', () => {
+  assert.throws(() => buildFirefoxZip(join(ROOT, 'extension', 'x.zip')), /dentro de extension/);
 });
