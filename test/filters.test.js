@@ -12,14 +12,14 @@ import {
   toList,
 } from '../extension/src/filters.js';
 
-const t = (id, o = {}) => ({ id, title: 'Titulo', entity: 'Município Beta', status: 2, priority: 3, extra: '', sources: ['assigned'], ...o });
+const t = (id, o = {}) => ({ id, title: 'Titulo', entity: 'Município Alfa', status: 2, priority: 3, extra: '', sources: ['assigned'], ...o });
 
 const TICKETS = [
-  t(1, { title: 'Relatório mensal não gera', entity: 'Município Beta', priority: 4, extra: 'Em análise' }),
-  t(2, { title: 'Bloqueio de agenda', entity: 'Município Gama�', status: 4, priority: 5, extra: 'Devolvido', sources: ['observer'] }),
-  t(3, { title: 'Exportação integração', entity: 'Município Beta', status: 5, priority: 3, sources: ['requester', 'manual'] }),
+  t(1, { title: 'Relatório mensal não gera', entity: 'Município Alfa', priority: 4, extra: 'Em análise' }),
+  t(2, { title: 'Bloqueio de agenda', entity: 'Município Beta', status: 4, priority: 5, extra: 'Devolvido', sources: ['observer'] }),
+  t(3, { title: 'Exportação integração', entity: 'Município Alfa', status: 5, priority: 3, sources: ['requester', 'manual'] }),
   t(4, { title: 'Sem acesso', entity: '', status: null, priority: null, sources: ['manual'] }),
-  t(5, { title: 'Erro de login', entity: 'Município Alfa', status: 1, priority: 1 }),
+  t(5, { title: 'Erro de login', entity: 'Município Gama', status: 1, priority: 1 }),
 ];
 
 const ids = (f, unread) => applyFilters(TICKETS, { ...DEFAULT_FILTERS, ...f }, unread).map((x) => x.id);
@@ -40,7 +40,7 @@ test('papel, entidade e Status extra', () => {
   assert.deepEqual(ids({ role: 'observer' }), [2]);
   assert.deepEqual(ids({ role: 'requester' }), [3]);
   assert.deepEqual(ids({ role: 'manual' }), [3, 4]);
-  assert.deepEqual(ids({ entity: 'Município Beta' }), [1, 3]);
+  assert.deepEqual(ids({ entity: 'Município Alfa' }), [1, 3]);
   assert.deepEqual(ids({ extra: 'Devolvido' }), [2]);
   assert.deepEqual(ids({ extra: NO_EXTRA }), [3, 4, 5]);
 });
@@ -58,18 +58,18 @@ test('só com novidades usa o callback de não lidos', () => {
 
 test('busca ignora acento e maiúsculas, aceita #número e várias palavras', () => {
   assert.deepEqual(ids({ q: 'mensal' }), [1]);
-  assert.deepEqual(ids({ q: 'mensal' }), [1]);
+  assert.deepEqual(ids({ q: 'MENSAL' }), [1]);
   assert.deepEqual(ids({ q: 'nao gera' }), [1]);
   assert.deepEqual(ids({ q: '#2' }), [2]);
-  assert.deepEqual(ids({ q: 'Município Gama' }), [2]); // entidade
+  assert.deepEqual(ids({ q: 'municipio beta' }), [2]); // entidade
   assert.deepEqual(ids({ q: 'devolvido' }), [2]); // Status extra
-  assert.deepEqual(ids({ q: 'Município Beta relatorio' }), [1]);
-  assert.deepEqual(ids({ q: 'Município Beta agenda' }), []);
+  assert.deepEqual(ids({ q: 'municipio alfa relatorio' }), [1]);
+  assert.deepEqual(ids({ q: 'municipio alfa agenda' }), []);
   assert.deepEqual(ids({ q: '   ' }), [1, 2, 3, 4, 5]);
 });
 
 test('filtros combinam com E', () => {
-  assert.deepEqual(ids({ entity: 'Município Beta', status: 'open' }), [1]);
+  assert.deepEqual(ids({ entity: 'Município Alfa', status: 'open' }), [1]);
   assert.deepEqual(ids({ role: 'assigned', priority: 'high', q: 'mensal' }), [1]);
   assert.deepEqual(ids({ role: 'manual', status: 'open' }), []);
 });
@@ -89,7 +89,7 @@ test('activeFilterCount conta filtros ligados', () => {
 
 test('filterOptions lista entidades e valores de Extra ordenados', () => {
   assert.deepEqual(filterOptions(TICKETS), {
-    entities: ['Município Alfa', 'Município Beta', 'Município Gama�'],
+    entities: ['Município Alfa', 'Município Beta', 'Município Gama'],
     extra: ['Devolvido', 'Em análise'],
     hasNoExtra: true,
   });
@@ -98,7 +98,7 @@ test('filterOptions lista entidades e valores de Extra ordenados', () => {
 test('sanitizeFilters volta para "todos" quando o valor salvo não existe mais', () => {
   const options = filterOptions(TICKETS);
   assert.equal(sanitizeFilters({ entity: 'Jales' }, options).entity, 'all');
-  assert.equal(sanitizeFilters({ entity: 'Município Beta' }, options).entity, 'Município Beta');
+  assert.equal(sanitizeFilters({ entity: 'Município Alfa' }, options).entity, 'Município Alfa');
   assert.equal(sanitizeFilters({ extra: 'Fechado' }, options).extra, 'all');
   assert.equal(sanitizeFilters({ extra: NO_EXTRA }, options).extra, NO_EXTRA);
   assert.equal(sanitizeFilters({ extra: NO_EXTRA }, { ...options, hasNoExtra: false }).extra, 'all');
@@ -143,7 +143,7 @@ test('filtro por tag: uma tag, "sem tag" e combinação com os outros filtros', 
   assert.deepEqual(idsTag({ tag: ['pr-review'] }), [1, 5]);
   assert.deepEqual(idsTag({ tag: ['avisado'] }), [1, 2]);
   assert.deepEqual(idsTag({ tag: [NO_TAG] }), [3, 4]);
-  assert.deepEqual(idsTag({ tag: ['pr-review'], entity: 'Município Alfa' }), [5]);
+  assert.deepEqual(idsTag({ tag: ['pr-review'], entity: 'Município Gama' }), [5]);
   assert.deepEqual(idsTag({}), [1, 2, 3, 4, 5]);
   assert.deepEqual(idsTag({ tag: [] }), [1, 2, 3, 4, 5]);
   // o formato antigo (texto) também filtra
@@ -165,7 +165,7 @@ test('"Sem tag" junto de outras tags soma os tickets sem nenhuma com os que têm
 });
 
 test('várias tags combinam com os outros filtros por E', () => {
-  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'], entity: 'Município Beta' }), [1]);
+  assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'], entity: 'Município Alfa' }), [1]);
   assert.deepEqual(idsTag({ tag: ['pr-review', 'avisado'], status: 'open', q: 'login' }), [5]);
   assert.deepEqual(idsTag({ tag: [NO_TAG, 'avisado'], role: 'manual' }), [3, 4]);
 });
@@ -181,7 +181,7 @@ test('tag entra na contagem de filtros (uma seleção múltipla conta como um s�
   assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['pr-review'] }), 1);
   assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['pr-review', 'avisado', NO_TAG] }), 1);
   assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: [NO_TAG] }, { panelOnly: true }), 1);
-  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['avisado'], entity: 'Município Beta' }, { panelOnly: true }), 2);
+  assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: ['avisado'], entity: 'Município Alfa' }, { panelOnly: true }), 2);
   assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: 'avisado' }), 1); // formato antigo
   assert.equal(activeFilterCount({ ...DEFAULT_FILTERS, tag: 'all' }), 0);
 });

@@ -1,7 +1,7 @@
 {
   "name": "my-ticket-lint",
   "private": true,
-  "description": "Só o ESLint, isolado aqui para a raiz do projeto continuar sem dependências. Veja o README (Desenvolvimento).",
+  "description": "Só o ESLint, isolado aqui para a raiz do projeto continuar sem dependências. Veja a DOCUMENTACAO.md (Desenvolvimento).",
   "type": "module",
   "devDependencies": {
     "@eslint/js": "10.0.1",

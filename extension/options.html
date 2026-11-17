@@ -28,10 +28,10 @@
         <input id="baseUrl" type="text" placeholder="https://glpi.suaempresa.com" spellcheck="false">
       </label>
       <label class="field"><span>App-Token</span>
-        <input id="appToken" type="password" spellcheck="false">
+        <input id="appToken" type="password" spellcheck="false" autocomplete="off">
       </label>
       <label class="field"><span>Token de API pessoal (user_token)</span>
-        <input id="userToken" type="password" spellcheck="false">
+        <input id="userToken" type="password" spellcheck="false" autocomplete="off">
         <span class="note">Em GLPI → Preferências → “Chave de acesso remoto”. Não é a sua senha.</span>
       </label>
       <div class="row">
@@ -63,7 +63,7 @@
       </label>
       <label class="field"><span>Search option do Status extra</span>
         <input id="extraField" type="number" min="0" step="1">
-        <span class="note">Campo do plugin Fields; 90001 na instância atual. Deixe em branco para desativar.</span>
+        <span class="note">Campo do plugin Fields; ex.: o número do campo no seu GLPI. Deixe em branco para desativar.</span>
       </label>
     </section>
     </div>

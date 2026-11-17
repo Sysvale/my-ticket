@@ -99,8 +99,30 @@ test('manifest: só as permissões que o produto usa, host só opcional e https,
   assert.equal(manifest.browser_specific_settings, undefined);
   // A única superfície além do popup e das Opções: a palavra-chave da barra de endereços ("ticket 148270"). Não pede permissão.
   assert.deepEqual(manifest.omnibox, { keyword: 'ticket' });
-  for (const key of ['content_scripts', 'web_accessible_resources', 'externally_connectable', 'content_security_policy', 'optional_permissions', 'devtools_page', 'sandbox']) {
+  for (const key of ['content_scripts', 'web_accessible_resources', 'externally_connectable', 'optional_permissions', 'devtools_page', 'sandbox']) {
     assert.equal(manifest[key], undefined, `${key} abre uma superfície nova: confirme que é intencional e ajuste este teste`);
+  }
+});
+
+// O CSP padrão do MV3 já barra script inline e remoto; este o aperta (nada além do que a extensão usa) e impede que um
+// afrouxamento passe sem ninguém ver. `connect-src https:` existe porque o service worker fala com o GLPI, que a pessoa
+// escolhe; as páginas da extensão (popup, Opções) não fazem requisição nenhuma.
+test('manifest: CSP das páginas da extensão fechado (sem unsafe-*, sem origem remota, só https para conexão)', () => {
+  const csp = JSON.parse(read('manifest.json')).content_security_policy?.extension_pages;
+  assert.ok(csp, 'content_security_policy.extension_pages ausente');
+  const directives = Object.fromEntries(csp.split(';').map((d) => d.trim()).filter(Boolean).map((d) => {
+    const [name, ...sources] = d.split(/\s+/);
+    return [name, sources];
+  }));
+  assert.deepEqual(directives['default-src'], ["'none'"]);
+  assert.deepEqual(directives['script-src'], ["'self'"]);
+  assert.deepEqual(directives['style-src'], ["'self'"]);
+  assert.deepEqual(directives['connect-src'], ['https:']);
+  assert.deepEqual(directives['base-uri'], ["'none'"]);
+  assert.deepEqual(directives['form-action'], ["'none'"]);
+  assert.doesNotMatch(csp, /unsafe-|\*|http:|data:|blob:/);
+  for (const [name, sources] of Object.entries(directives)) {
+    if (name !== 'connect-src') assert.ok(sources.every((s) => ["'self'", "'none'"].includes(s)), `${name}: ${sources.join(' ')}`);
   }
 });
 

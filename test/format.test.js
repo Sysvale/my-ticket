@@ -56,16 +56,16 @@ test('timeAgo formata datas do GLPI', () => {
 });
 
 test('describeEvent resume cada tipo de evento', () => {
-  assert.equal(describeEvent({ type: 'followup', author: 'Analista', text: 'oi' }), 'Analista: oi');
+  assert.equal(describeEvent({ type: 'followup', author: 'Analista A', text: 'oi' }), 'Analista A: oi');
   assert.equal(describeEvent({ type: 'status', text: 'A → B' }), 'Status: A → B');
   assert.equal(describeEvent({ type: 'extra', text: 'x' }), 'Status extra: x');
 });
 
 test('describeEvent sem texto (conteúdo oculto) não mostra "(sem texto)"', () => {
-  assert.equal(describeEvent({ type: 'followup', author: 'Analista', text: '' }), 'Analista respondeu');
+  assert.equal(describeEvent({ type: 'followup', author: 'Analista A', text: '' }), 'Analista A respondeu');
   assert.equal(describeEvent({ type: 'followup', author: '', text: '' }), 'Alguém respondeu');
-  assert.equal(describeEvent({ type: 'solution', author: 'Analista', text: '' }), 'Analista propôs uma solução');
-  assert.equal(describeEvent({ type: 'solution', author: 'Analista', text: 'reiniciei' }), 'Analista propôs solução: reiniciei');
+  assert.equal(describeEvent({ type: 'solution', author: 'Analista A', text: '' }), 'Analista A propôs uma solução');
+  assert.equal(describeEvent({ type: 'solution', author: 'Analista A', text: 'reiniciei' }), 'Analista A propôs solução: reiniciei');
 });
 
 test('isSecureUrl aceita só https://', () => {

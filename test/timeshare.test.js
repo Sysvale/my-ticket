@@ -33,7 +33,7 @@ const reset = () => { rowId = 0; };
 
 test('parseActorRef separa o nome do id, inclusive em equipes "Pai / Filho" e sem id', () => {
   assert.deepEqual(parseActorRef('Analista A (12)'), { name: 'Analista A', id: 12 });
-  assert.deepEqual(parseActorRef('Sysvale / Suporte N2 (9)'), { name: 'Sysvale / Suporte N2', id: 9 });
+  assert.deepEqual(parseActorRef('Empresa / Suporte N2 (9)'), { name: 'Empresa / Suporte N2', id: 9 });
   assert.deepEqual(parseActorRef('Nome (com parênteses) (7)'), { name: 'Nome (com parênteses)', id: 7 });
   assert.deepEqual(parseActorRef('cortado sem id'), { name: 'cortado sem id', id: null });
   assert.deepEqual(parseActorRef(undefined), { name: '', id: null });
@@ -85,9 +85,9 @@ test('buildEntry: papel só nos intervalos ainda abertos de quem está agora; o 
     rows: [actorRow(0, 'add', 'User', 'Ana Lima', 5), actorRow(60, 'add', 'User', 'Analista A', 12), actorRow(180, 'del', 'User', 'Analista A', 12), actorRow(300, 'add', 'User', 'Analista A', 12)],
     actors: [A('User', 5, ROLE.REQUESTER), A('User', 12, ROLE.ASSIGNED)],
   });
-  const analistaA = e.actors.find((a) => a.id === 12);
-  assert.deepEqual(analistaA.segs.map((s) => s[2]), [0, ROLE.ASSIGNED]); // a 1ª passagem já acabou: papel desconhecido
-  assert.equal(analistaA.name, 'Analista A');
+  const analista = e.actors.find((a) => a.id === 12);
+  assert.deepEqual(analista.segs.map((s) => s[2]), [0, ROLE.ASSIGNED]); // a 1ª passagem já acabou: papel desconhecido
+  assert.equal(analista.name, 'Analista A');
   assert.equal(e.actors.find((a) => a.id === 5).segs[0][2], ROLE.REQUESTER);
 });
 
@@ -107,7 +107,7 @@ test('buildEntry: quem tem dois papéis ao mesmo tempo não permite dizer qual i
 test('buildEntry com ocultar conteúdo não leva nome nenhum', () => {
   reset();
   const e = entry({ now: 100, hide: true, rows: [actorRow(10, 'add', 'User', 'Analista A', 12)], actors: [A('User', 12, ROLE.ASSIGNED)] });
-  assert.doesNotMatch(JSON.stringify(e), /Analista|Analista/);
+  assert.doesNotMatch(JSON.stringify(e), /Analista A/);
   const m = donutModel(e, { now: at(100) });
   assert.ok(slice(m, 'User:12').label === 'Pessoa #12');
 });
@@ -119,7 +119,7 @@ test('rosca: fila no início, passagens somadas e dois atribuídos juntos divide
   const actors = [A('User', 5, ROLE.REQUESTER), A('User', 7, ROLE.ASSIGNED), A('User', 12, ROLE.ASSIGNED)];
   const e = entry({ rows, actors, now: 420 });
 
-  // padrão: a 1ª passagem da Analista acabou e o GLPI não guardou o papel dela: fatia à parte, avisando
+  // padrão: a 1ª passagem da Analista A acabou e o GLPI não guardou o papel dela: fatia à parte, avisando
   const strict = donutModel(e, { now: at(420) });
   assert.equal(min(strict.window.totalMs), 420);
   assert.equal(sum(strict), strict.window.totalMs);
@@ -130,7 +130,7 @@ test('rosca: fila no início, passagens somadas e dois atribuídos juntos divide
   assert.equal(slice(strict, 'User:5'), undefined); // o requerente não entra
   assert.equal(strict.uncertain, true);
 
-  // contando quem saiu como atribuição: a passagem anterior da Analista entra e as passagens dela se somam
+  // contando quem saiu como atribuição: a passagem anterior da Analista A entra e as passagens dela se somam
   const loose = donutModel(e, { now: at(420), includeUnknown: true });
   assert.equal(sum(loose), loose.window.totalMs);
   assert.equal(slice(loose, 'unknown'), undefined);
@@ -178,7 +178,7 @@ test('rosca: ticket reaberto segue a linha do tempo contínua até a última sol
 
 test('rosca: pessoa antes de equipe — com técnico atribuído, a equipe que continua no ticket não divide o tempo', () => {
   reset();
-  const rows = [actorRow(0, 'add', 'Group', 'Sysvale / Suporte N2', 9), actorRow(120, 'add', 'User', 'João Reis', 7)];
+  const rows = [actorRow(0, 'add', 'Group', 'Empresa / Suporte N2', 9), actorRow(120, 'add', 'User', 'João Reis', 7)];
   const e = entry({ rows, actors: [A('Group', 9, ROLE.ASSIGNED), A('User', 7, ROLE.ASSIGNED)], now: 300 });
   const m = donutModel(e, { now: at(300) });
   assert.equal(min(slice(m, 'Group:9').ms), 120);

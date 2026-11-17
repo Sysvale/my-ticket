@@ -11,7 +11,7 @@ const row = (id, over = {}) => ({
   id,
   title: `Ticket ${id}`,
   dateMod: '2026-09-29 10:00',
-  entity: 'Município Beta',
+  entity: 'Município Alfa',
   extra: '',
   ...over,
 });
@@ -112,7 +112,7 @@ test('novo acompanhamento de outra pessoa gera notificação limpa', async () =>
   assert.equal(r2.notifications.length, 1);
   assert.equal(r2.notifications[0].title, '#1 Ticket 1');
   assert.equal(r2.notifications[0].message, 'Analista A: Segue o log & print');
-  assert.equal(r2.notifications[0].context, 'Município Beta');
+  assert.equal(r2.notifications[0].context, 'Município Alfa');
   assert.equal(r2.state.tickets[1].lastFollowupId, 11);
   // rodar de novo não repete o aviso
   const r3 = await poll(w, { state: r2.state });

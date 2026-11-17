@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { KEYWORD, MAX_SUGGESTIONS, resolveInput, suggestionsFor } from '../extension/src/omnibox.js';
 import { omniboxText } from '../extension/src/compat.js';
 
-const T = (id, title, o = {}) => ({ id, title, entity: 'Município Beta', dateMod: '2026-09-29 10:00:00', ...o });
+const T = (id, title, o = {}) => ({ id, title, entity: 'Município Alfa', dateMod: '2026-09-29 10:00:00', ...o });
 const TICKETS = {
   148270: T(148270, 'Relatório mensal não gera', { dateMod: '2026-09-29 10:00:00' }),
-  148271: T(148271, 'Bloqueio de agenda', { dateMod: '2026-09-30 09:00:00', entity: 'Município Gama�' }),
+  148271: T(148271, 'Bloqueio de agenda', { dateMod: '2026-09-30 09:00:00', entity: 'Município Beta' }),
   159919: T(159919, 'Exportação integração & relatório <urgente>', { dateMod: '2026-09-28 08:00:00' }),
   100: T(100, 'Erro de login', { dateMod: '2026-10-01 12:00:00' }),
 };
@@ -32,7 +32,7 @@ test('número: o que começa igual vem primeiro, e o número exato antes de todo
 test('palavras do título (sem diferenciar acento) e da entidade; todas precisam casar', () => {
   assert.deepEqual(ids(suggestionsFor('relatorio mensal', TICKETS)), [148270]);
   assert.deepEqual(ids(suggestionsFor('RELATÓRIO', TICKETS)), [148270, 159919]);
-  assert.deepEqual(ids(suggestionsFor('Município Gama', TICKETS)), [148271]);
+  assert.deepEqual(ids(suggestionsFor('municipio beta', TICKETS)), [148271]);
   assert.deepEqual(ids(suggestionsFor('mensal agenda', TICKETS)), []);
   assert.deepEqual(suggestionsFor('xyz', TICKETS), []);
 });
