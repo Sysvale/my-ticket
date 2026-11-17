@@ -369,7 +369,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.config || changes.state || changes.user) updateBadge();
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Só as páginas desta extensão (popup, Opções, Guia) mandam pedidos. O manifest já não expõe a extensão a páginas nem
+  // a outras extensões (sem externally_connectable e sem content scripts); isto é a segunda barreira: um remetente que
+  // não seja a própria extensão não consegue pedir teste de conexão, apagar dados nem abrir tickets.
+  if (sender?.id !== chrome.runtime.id) return false;
   if (msg?.type === 'poll-now') {
     poll().then(() => sendResponse({ ok: true }));
     return true;

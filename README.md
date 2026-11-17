@@ -106,7 +106,9 @@ version of 2 or lower”. Por isso o manifest do Firefox é **gerado** a partir 
 
 ```bash
 npm run build:firefox                                   # gera dist/firefox
+npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
 npm run build:firefox -- --out /mnt/c/Users/<usuário>/MyTicket/extension-firefox   # WSL: direto no disco do Windows
+npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
 ```
 
 Depois, no Firefox: `about:debugging#/runtime/this-firefox` → **Carregar extensão temporária…** → o `manifest.json` da pasta
@@ -208,12 +210,17 @@ foco ao campo.
 - **Sem redirecionamentos.** O cliente nunca segue um redirect do GLPI (o navegador repassaria `App-Token` e
   `Session-Token` ao novo destino, até a um `http://`): avisa "o GLPI redirecionou o pedido" e pede para
   corrigir a URL. Cada requisição tem limite de 20 s, contando a leitura da resposta.
+- **CSP fechado** nas páginas da extensão (`default-src 'none'`, scripts e estilos só da própria extensão, conexão só por
+  `https:`) e **pedidos internos só da própria extensão**: o service worker ignora mensagens de outro remetente.
+- **Os tokens não vazam:** o passo "Os tokens não vazam" do teste e2e procura o App-Token, o user_token e o token de
+  sessão no storage, nas notificações, no ícone, nas páginas, nos logs e nas URLs que chegam ao GLPI. Para reportar uma
+  vulnerabilidade, veja `SECURITY.md`.
 - Sem `console.*`, sem analytics, sem dependências de terceiros e um único ponto de rede
   (`src/glpi.js`), sempre para a URL do GLPI configurada. A raiz do projeto e a extensão não têm dependência nenhuma:
   o ESLint, só de desenvolvimento, fica isolado em `tools/lint/` e nunca vai para o Chrome.
 - **Essas garantias são verificadas, não só prometidas:** `test/invariants.test.js` (roda no `npm test` e no CI) falha
   se aparecer `console.*`, `innerHTML`/`eval`, rede fora de `src/glpi.js`, `storage.sync`, URL `http://`, script inline ou
-  recurso remoto no HTML/CSS, ou uma permissão nova no `manifest.json`.
+  recurso remoto no HTML/CSS, uma permissão nova ou um CSP mais frouxo no `manifest.json`.
 
 ## Quando as tags podem ser perdidas
 
@@ -241,7 +248,7 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 - Só os tickets alterados chamam `Ticket/:id`, `ITILFollowup` e `ITILSolution`. O histórico (`Ticket/:id?with_logs=true`, `Ticket_User`, `Group_Ticket`) só é lido no clique de “Gerar gráfico de tempo”. Uma varredura
   completa roda a cada 15 min como rede de segurança.
 - A primeira vez que um ticket é visto é um baseline silencioso (não avisa o histórico).
-- O Status extra (plugin Fields, search option `90001`) vem do próprio search e é comparado a
+- O Status extra (plugin Fields, search option configurável) vem do próprio search e é comparado a
   cada rodada, porque pode mudar sem alterar o `date_mod` do ticket.
 - Tickets resolvidos ficam visíveis por 2 dias em "Encerrados". Vale também para os acompanhados pelo número: depois
   de 2 dias encerrados, deixam de ser acompanhados. Encerrados só são relidos se o `date_mod` mudar (ex.: reabertos).
@@ -306,7 +313,7 @@ assets/logo.png    logo original (1254x1254)
 ## Desenvolvimento
 
 ```bash
-npm test          # 213 testes, sem dependências (Node >= 20)
+npm test          # 322 testes, sem dependências (Node >= 20)
 npm run test:coverage   # os mesmos testes com coverage (Node >= 22.5); escreve coverage/lcov.info
 npm run lint:install    # uma vez: instala o ESLint em tools/lint/ (78 pacotes, sem scripts de instalação)
 npm run lint            # ESLint (precisa do lint:install; Node >= 20.19)
@@ -314,6 +321,7 @@ npm run icons     # regenera extension/icons/*.png e extension/logo.png a partir
 python3 scripts/make-sounds.py   # regenera extension/sounds/*.wav
 npm run sync:win  # copia extension/ para o disco do Windows (WSL → Chrome do Windows)
 npm run build:firefox   # gera dist/firefox, a pasta que o Firefox carrega (--out <pasta> escolhe outra)
+npm run build:chrome    # gera dist/my-ticket-<versão>.zip para a Chrome Web Store (veja guia-publish.md)
 npm run e2e       # teste visual ponta a ponta (Chromium + GLPI simulado) → docs/e2e/index.html
 ```
 
@@ -370,7 +378,7 @@ Estas dependem da instância e aparecem na resposta de **Testar conexão**:
 
 - Search options de Ticket `4` (requerente), `5` (técnico), `66` (observador), `12` (status)
   e `19` (última atualização), e o valor de status `notold`.
-- `90001` como search option do Status extra (valor da instância original; ajustável em Opções → Avançado).
+- A search option do Status extra não vem preenchida: informe o número do campo do seu GLPI em Opções para ativá-lo.
 - Subitens `Ticket/:id/ITILFollowup` e `Ticket/:id/ITILSolution` (GLPI 10+). Em GLPI mais
   antigo, soluções são ignoradas em silêncio.
 - Até 200 tickets por papel por rodada.

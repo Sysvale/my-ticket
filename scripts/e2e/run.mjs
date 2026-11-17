@@ -11,7 +11,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fmt, startFakeGlpi, TOKENS } from './fake-glpi.mjs';
+import { fmt, SESSION, startFakeGlpi, TOKENS } from './fake-glpi.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.E2E_OUT ?? join(ROOT, 'docs/e2e');
@@ -233,7 +233,7 @@ try {
 
   // configuração como se a pessoa tivesse preenchido as Opções
   await sw.eval(`chrome.storage.local.set({
-    config: { baseUrl: ${JSON.stringify(glpi.url)}, appToken: ${JSON.stringify(TOKENS.app)}, userToken: ${JSON.stringify(TOKENS.user)},
+    config: { extraField: 90001, baseUrl: ${JSON.stringify(glpi.url)}, appToken: ${JSON.stringify(TOKENS.app)}, userToken: ${JSON.stringify(TOKENS.user)},
               sound: { enabled: true, name: 'chime', volume: 0.6 }, attention: { flash: true, sticky: false } },
     user: { watched: { 159321: { addedAt: Date.now() } }, readAt: {} },
   })`);
@@ -277,7 +277,7 @@ try {
   // ---- 3. chegam novidades
   {
     const S = newStep('Chegam novidades: respostas, mudança de Status extra e ticket novo',
-      'No GLPI simulado: Analista responde no #159919, o Status extra do #159885 vira “Devolvido” (sem resposta nova) e um ticket novo, #159930, é atribuído a você. Clique em “Atualizar agora” de novo.');
+      'No GLPI simulado: Analista A responde no #159919, o Status extra do #159885 vira “Devolvido” (sem resposta nova) e um ticket novo, #159930, é atribuído a você. Clique em “Atualizar agora” de novo.');
     world.reply(159919, 20, '&lt;p&gt;Segue o log do erro e o print da tela de relatórios. O problema começou depois da atualização de ontem à noite.&lt;/p&gt;');
     world.extra[159885] = 'Devolvido';
     world.addTicket(159930, 'Duplicidade de cadastro individual por CNS', { status: 1 });
@@ -288,11 +288,11 @@ try {
     const list = await created();
     const byId = Object.fromEntries(list.map((c) => [c.id.split(':')[1], c.opts]));
     S.check('3 notificações criadas no Chrome (uma por ticket)', list.length === 3, list.map((c) => c.id.split(':').slice(0, 2).join(':')).join(', '));
-    S.check('Resposta de Analista no #159919', byId[159919]?.message?.startsWith('Analista A: Segue o log do erro'), byId[159919]?.message);
+    S.check('Resposta de Analista A no #159919', byId[159919]?.message?.startsWith('Analista A: Segue o log do erro'), byId[159919]?.message);
     S.check('Mudança de Status extra no #159885', byId[159885]?.message === 'Status extra: Em análise → Devolvido', byId[159885]?.message);
     S.check('Ticket novo no radar (#159930)', byId[159930]?.message === 'Novo no seu radar: atribuído a você', byId[159930]?.message);
     S.check('Título traz o número e o título do ticket', byId[159919]?.title === '#159919 Relatório mensal não gera no processamento (fila parada há horas)', byId[159919]?.title);
-    S.check('Entidade como contexto', byId[159919]?.contextMessage === 'Município Beta', byId[159919]?.contextMessage);
+    S.check('Entidade como contexto', byId[159919]?.contextMessage === 'Município Alfa', byId[159919]?.contextMessage);
     S.check('Botões “Abrir” e “Marcar como lido”', JSON.stringify(byId[159919]?.buttons?.map((b) => b.title)) === '["Abrir","Marcar como lido"]');
     S.check('Som padrão do Windows silenciado (o da extensão toca)', list.every((c) => c.opts.silent === true));
     S.check('Contador no ícone da extensão', (await sw.eval('chrome.action.getBadgeText({})')) === '3', 'badge = 3');
@@ -303,7 +303,7 @@ try {
   // ---- 4. busca e filtros
   {
     const S = newStep('Busca e filtros do popup',
-      'Digitar “mensal” na busca e escolher a entidade “Município Gama�” no painel de filtros. Os filtros combinam com “E” e mostram “Mostrando X de Y”.');
+      'Digitar “mensal” na busca e escolher a entidade “Município Beta” no painel de filtros. Os filtros combinam com “E” e mostram “Mostrando X de Y”.');
     await popup.type('#q', 'mensal');
     await popup.waitFor("document.querySelectorAll('.card').length === 1", 'busca filtrando');
     await S.shot(popup, 'Busca por “mensal”: só o #159919', "document.getElementById('q')");
@@ -311,26 +311,26 @@ try {
     S.check('Resumo “Mostrando 1 de 4”', (await popup.text('#summary-text')) === 'Mostrando 1 de 4', await popup.text('#summary-text'));
     await popup.click("document.getElementById('f-clear')");
     await popup.click("document.getElementById('filters-toggle')");
-    // a busca do seletor ignora acento: "Município Gama" acha "Município Gama�"
+    // a busca do seletor ignora acento: "municipio beta" acha "Município Beta"
     await popup.eval("document.querySelector('#f-entity .pk-btn').click()");
-    await popup.type('#pk-slot .pk-search', 'Município Gama');
+    await popup.type('#pk-slot .pk-search', 'municipio beta');
     S.check('Busca dentro do seletor de entidade ignora acento e mostra só o que casa',
-      (await popup.eval("[...document.querySelectorAll('#pk-slot .pk-opt')].map((o) => o.textContent).join()")) === 'Município Gama�');
-    await S.shot(popup, 'Seletor de entidade aberto, buscando “Município Gama”', "document.getElementById('filters-panel')");
-    await popup.pick('#f-entity', 'Município Gama�');
+      (await popup.eval("[...document.querySelectorAll('#pk-slot .pk-opt')].map((o) => o.textContent).join()")) === 'Município Beta');
+    await S.shot(popup, 'Seletor de entidade aberto, buscando “municipio beta”', "document.getElementById('filters-panel')");
+    await popup.pick('#f-entity', 'Município Beta');
     await popup.waitFor("document.querySelectorAll('.card').length === 1", 'filtro por entidade');
-    S.check('Escolher a entidade fecha a lista e o botão mostra o nome', (await popup.eval("document.getElementById('pk-slot').children.length")) === 0 && (await popup.text('#f-entity .pk-text')) === 'Município Gama�');
-    await S.shot(popup, 'Painel de filtros aberto, entidade = Município Gama�: só o #159885', "document.getElementById('f-entity')");
+    S.check('Escolher a entidade fecha a lista e o botão mostra o nome', (await popup.eval("document.getElementById('pk-slot').children.length")) === 0 && (await popup.text('#f-entity .pk-text')) === 'Município Beta');
+    await S.shot(popup, 'Painel de filtros aberto, entidade = Município Beta: só o #159885', "document.getElementById('f-entity')");
     S.check('Filtro por entidade', (await popup.eval("[...document.querySelectorAll('.card .id')].map((e) => e.textContent).join()")) === '#159885');
     S.check('Contador de filtros no botão', (await popup.text('#filters-count')) === '1');
     // o popup fecha ao menor clique fora: o filtro escolhido precisa ser gravado na hora, sem esperar o atraso de 200 ms
-    await popup.pick('#f-entity', 'Município Alfa');
+    await popup.pick('#f-entity', 'Município Gama');
     const flushed = await popup.eval(`(async () => {
       window.dispatchEvent(new Event('pagehide'));
       const { ui } = await chrome.storage.local.get('ui');
       return ui?.filters?.entity;
     })()`);
-    S.check('Filtro escolhido é gravado na hora quando o popup fecha (pagehide)', flushed === 'Município Alfa', `gravado: ${flushed}`);
+    S.check('Filtro escolhido é gravado na hora quando o popup fecha (pagehide)', flushed === 'Município Gama', `gravado: ${flushed}`);
     await popup.click("document.getElementById('f-clear')");
     await popup.click("document.getElementById('filters-toggle')");
     await popup.waitFor("document.querySelectorAll('.card').length === 4", 'filtros limpos');
@@ -346,14 +346,14 @@ try {
       return { chips: at(card.querySelector('.meta'))?.classList.contains('card-open'), action: !action || at(action) === action };
     })()`);
     S.check('Clicar em qualquer ponto do card (ex.: na linha de dados do GLPI) atinge o botão do card', hit.chips === true);
-    // hierarquia: sem tags, o card não tem chip nenhum; status, prioridade, Extra, entidade e papel são texto discreto
+    // hierarquia: sem tags, o card não tem chip nenhum; status, prioridade, Status extra, entidade e papel são texto discreto
     const hier = await popup.eval(`(() => {
       const card = document.querySelector('.card.unread');
       return { chips: card.querySelectorAll('.chip').length, hasRow: card.querySelector('.chips') !== null, meta: card.querySelector('.meta')?.textContent ?? '' };
     })()`);
     S.check('Card sem tags não tem chips coloridos nem linha de chips vazia', hier.chips === 0 && hier.hasRow === false, JSON.stringify(hier));
-    S.check('Status, prioridade, Extra, entidade e papel ficam numa linha de texto discreto',
-      ['Em atendimento', 'Alta', 'Extra: Em análise', 'Município Beta', 'atribuído'].every((x) => hier.meta.includes(x)), hier.meta);
+    S.check('Status, prioridade, Status extra, entidade e papel ficam numa linha de texto discreto',
+      ['Em atendimento', 'Alta', 'Extra: Em análise', 'Município Alfa', 'atribuído'].every((x) => hier.meta.includes(x)), hier.meta);
     S.check('Botões de ação ficam acima da área clicável do card', hit.action === true);
   }
 
@@ -610,8 +610,8 @@ try {
     S.check('Lista escondida, detalhes visíveis', await popup.eval("document.getElementById('list-view').hidden && !document.getElementById('detail').hidden"));
     S.check('Título completo do ticket', text.includes('Relatório mensal não gera no processamento (fila parada há horas)'));
     S.check('Botão “Abrir no GLPI ↗” presente', text.includes('Abrir no GLPI ↗'));
-    S.check('Conversa ao vivo: resposta da Analista', text.includes('Analista A') && text.includes('Segue o log do erro'));
-    S.check('Conversa ao vivo: resposta anterior do Analista', text.includes('Analista B') && text.includes('Recebi o chamado'));
+    S.check('Conversa ao vivo: resposta da Analista A', text.includes('Analista A') && text.includes('Segue o log do erro'));
+    S.check('Conversa ao vivo: resposta anterior do Analista B', text.includes('Analista B') && text.includes('Recebi o chamado'));
     S.check('Informações: aberto em e solução até (SLA)', text.includes('Aberto em') && text.includes('Solução até'));
     S.check('Novidades detectadas marcadas como “novo”', text.includes('NOVIDADES DETECTADAS') && text.includes('novo'));
     S.check('Nenhum “null”/“undefined” perdido na tela', (text.match(STRAY) ?? []).length === 0, (text.match(STRAY) ?? []).join(','));
@@ -673,7 +673,7 @@ try {
     const text = await popup.text('#detail');
     S.check('Aviso de conteúdo oculto exibido', text.includes('Conteúdo oculto'));
     S.check('Texto das respostas ausente da tela', !text.includes('Segue o log') && !text.includes('Recebi o chamado'));
-    S.check('Descrição do ticket ausente da tela', !text.includes('relatório mensals'));
+    S.check('Descrição do ticket ausente da tela', !text.includes('relatório mensal'));
     S.check('Autores continuam visíveis', text.includes('Analista A') && text.includes('Analista B'));
     const stored = JSON.stringify(await sw.eval("chrome.storage.local.get('state')"));
     S.check('Texto da resposta apagado do cache local', !stored.includes('Segue o log do erro'));
@@ -1272,7 +1272,7 @@ try {
       id: String(++rid), itemtype: 'Ticket', items_id: 159919, itemtype_link: 'User', linked_action: op === 'add' ? 15 : 16, user_name: 'Admin (1)',
       date_mod: mm(m), id_search_option: 0, old_value: op === 'del' ? `${name} (${uid})` : '', new_value: op === 'add' ? `${name} (${uid})` : '',
     });
-    // Ana (requerente) desde a abertura; Analista de 30 a 90 min (já saiu); Analista desde 90 min (atribuído agora)
+    // Ana (requerente) desde a abertura; Analista A de 30 a 90 min (já saiu); Analista B desde 90 min (atribuído agora)
     world.logs[159919] = [row(0, 'add', 'Ana Paula Ribeiro', 22), row(30, 'add', 'Analista A', 20), row(90, 'del', 'Analista A', 20), row(90, 'add', 'Analista B', 21)];
     world.actors[159919] = { users: [{ users_id: 22, type: 1 }, { users_id: 21, type: 2 }], groups: [] };
 
@@ -1291,20 +1291,20 @@ try {
     S.check('O clique faz exatamente 3 consultas: ticket com o log, pessoas e equipes', first.length === 3 && first.some((u) => /Ticket\/159919\?with_logs=true/.test(u)) && first.some((u) => /Ticket_User/.test(u)) && first.some((u) => /Group_Ticket/.test(u)), first.join(' | '));
     const legend = async () => JSON.parse(await popup.eval("JSON.stringify([...document.querySelectorAll('#detail .dn-legend li')].map((li) => [li.querySelector('.dn-name').firstChild.textContent, li.querySelector('.dn-val').textContent, li.querySelector('.dn-pct').textContent]))"));
     const l1 = await legend();
-    S.check('Fatias: Analista (atribuído agora), fila e “Papel desconhecido” (a passagem da Analista, que já saiu)', l1.map((x) => x[0]).sort().join('|') === ['Analista B', 'Papel desconhecido', 'Sem atribuição / Fila'].sort().join('|'), JSON.stringify(l1));
-    S.check('A requerente (Ana) não aparece como atribuída', !l1.some((x) => x[0].includes('Ana')));
+    S.check('Fatias: Analista B (atribuído agora), fila e “Papel desconhecido” (a passagem da Analista A, que já saiu)', l1.map((x) => x[0]).sort().join('|') === ['Analista B', 'Papel desconhecido', 'Sem atribuição / Fila'].sort().join('|'), JSON.stringify(l1));
+    S.check('A requerente (Ana) não aparece como atribuída', !l1.some((x) => x[0].includes('Ana Paula')));
     const pct = (await popup.eval("[...document.querySelectorAll('#detail .dn-pct')].map((e) => parseFloat(e.textContent.replace(',', '.')))")).reduce((a, b) => a + b, 0);
     S.check('As porcentagens somam 100%', Math.abs(pct - 100) < 0.31, `${pct}`);
     S.check('Aviso do tempo de quem saiu e a opção para contá-lo', (await popup.text('#detail')).includes('o GLPI não guarda o papel de quem saiu') && (await popup.eval("document.querySelector('#detail [data-focus=share-unknown]') !== null")));
     S.check('O técnico atual aparece “em andamento”', await popup.eval("[...document.querySelectorAll('#detail .dn-live')].some((e) => e.closest('li').textContent.includes('Analista B'))"));
     S.check('A rosca tem texto alternativo com os valores', (await popup.eval("document.querySelector('#detail .dn-chart').getAttribute('aria-label')")).includes('Analista B'));
-    await S.shot(popup, 'Rosca gerada: Analista (atribuído agora), fila inicial e o tempo de quem já saiu', "document.querySelector('#detail .dn')");
+    await S.shot(popup, 'Rosca gerada: Analista B (atribuído agora), fila inicial e o tempo de quem já saiu', "document.querySelector('#detail .dn')");
 
     // contar quem saiu como atribuído: recalcula sem falar com o GLPI
     await popup.click("document.querySelector('#detail [data-focus=share-unknown]')");
-    await popup.waitFor("[...document.querySelectorAll('#detail .dn-name')].some((e) => e.textContent.includes('Analista A'))", 'Analista entrou na rosca');
+    await popup.waitFor("[...document.querySelectorAll('#detail .dn-name')].some((e) => e.textContent.includes('Analista A'))", 'Analista A entrou na rosca');
     const l2 = await legend();
-    S.check('Com a opção marcada a Analista aparece e “Papel desconhecido” some', l2.some((x) => x[0] === 'Analista A') && !l2.some((x) => x[0] === 'Papel desconhecido'), JSON.stringify(l2));
+    S.check('Com a opção marcada a Analista A aparece e “Papel desconhecido” some', l2.some((x) => x[0] === 'Analista A') && !l2.some((x) => x[0] === 'Papel desconhecido'), JSON.stringify(l2));
     S.check('Marcar a opção não consulta o GLPI de novo', logUrls().length === 3);
     await S.shot(popup, 'Com “Contar quem saiu do ticket como atribuído” marcado', "document.querySelector('#detail .dn')");
     await popup.click("document.querySelector('#detail [data-focus=share-unknown]')");
@@ -1338,7 +1338,7 @@ try {
     await popup.click("document.querySelector('#detail [data-focus=share-gen]')");
     await popup.waitFor("document.querySelector('#detail .dn') !== null", 'rosca sem nomes');
     const hidden = await popup.text('#detail .dn');
-    S.check('Com “ocultar conteúdo” a rosca não traz nome de ninguém (Pessoa #id)', !/Analista|Analista|Ana Paula|Analista|Analista|Ribeiro/.test(hidden) && hidden.includes('Pessoa #21'), hidden.replace(/\s+/g, ' ').slice(0, 160));
+    S.check('Com “ocultar conteúdo” a rosca não traz nome de ninguém (Pessoa #id)', !/Analista B|Analista A|Ana Paula|Ribeiro/.test(hidden) && hidden.includes('Pessoa #21'), hidden.replace(/\s+/g, ' ').slice(0, 160));
     await sw.eval("chrome.storage.local.get('config').then(({ config }) => chrome.storage.local.set({ config: { ...config, hideContent: false } }))");
     await sleep(300);
 
@@ -1404,6 +1404,52 @@ try {
     optionsEvents.push(...again.events);
     again.close();
     await sw.eval("chrome.alarms.clear('poll')"); // salvar recria o alarme; este teste segue sem ele
+  }
+
+  // ---- 10b. os tokens não vazam
+  {
+    const S = newStep('Os tokens não vazam',
+      'Com a extensão configurada e depois de todo o uso acima (verificações, notificações, detalhes, erros), procuramos o App-Token, o user_token e o token de sessão em tudo onde poderiam aparecer: cada chave do storage, o storage de sessão e o sync, as notificações, o ícone, as páginas abertas, o log do navegador e as URLs que chegaram ao GLPI.');
+    const secrets = { 'App-Token': TOKENS.app, user_token: TOKENS.user, session_token: SESSION };
+    const dump = async (area) => JSON.parse(await sw.eval(`chrome.storage.${area}.get(null).then((r) => JSON.stringify(r))`));
+    const local = await dump('local');
+    const session = await dump('session');
+    const sync = await dump('sync');
+    const has = (value, secret) => JSON.stringify(value ?? null).includes(secret);
+    const where = (secret) => Object.keys(local).filter((k) => has(local[k], secret));
+    S.check('App-Token e user_token só existem na chave "config" do storage local', where(TOKENS.app).join() === 'config' && where(TOKENS.user).join() === 'config',
+      `App-Token em: ${where(TOKENS.app).join() || '—'} · user_token em: ${where(TOKENS.user).join() || '—'}`);
+    S.check('O token de sessão nunca vai para o storage local', where(SESSION).length === 0, where(SESSION).join());
+    S.check('No storage de sessão só existe o token de sessão (nenhum token de longa duração)', !has(session, TOKENS.app) && !has(session, TOKENS.user) && has(session, SESSION),
+      Object.keys(session).join());
+    S.check('Nada em storage.sync (que sobe para a conta Google)', Object.keys(sync).length === 0);
+    const everywhere = {
+      notificações: await created(),
+      'título do ícone': await sw.eval('chrome.action.getTitle({})'),
+      'texto do ícone': await sw.eval('chrome.action.getBadgeText({})'),
+      'DOM do popup': await popup.eval('document.documentElement.outerHTML'),
+      'log do popup': popup.events,
+      'log do service worker': sw.events,
+      'log das Opções': optionsEvents,
+      'URLs que chegaram ao GLPI': world.urls,
+    };
+    for (const [name, value] of Object.entries(everywhere)) {
+      const leaked = Object.entries(secrets).filter(([, v]) => has(value, v)).map(([k]) => k);
+      S.check(`Nenhum token em: ${name}`, leaked.length === 0, leaked.join(', '));
+    }
+    // um token errado e um servidor que recusa: o erro mostrado não pode repetir o token digitado
+    const WRONG = 'TOKEN-ERRADO-QUE-NAO-PODE-APARECER';
+    const bad = await popup.eval(`chrome.runtime.sendMessage({ type: 'test', config: { baseUrl: ${JSON.stringify(glpi.url)}, appToken: ${JSON.stringify(TOKENS.app)}, userToken: ${JSON.stringify(WRONG)} } })`);
+    S.check('Teste de conexão com token errado falha sem devolver o token na mensagem', bad?.ok === false && !JSON.stringify(bad).includes(WRONG), JSON.stringify(bad));
+    S.check('O token errado não foi gravado em lugar nenhum', !has(await dump('local'), WRONG) && !has(await dump('session'), WRONG));
+    S.check('Tokens trafegam só em cabeçalhos HTTPS: nunca na URL', world.urls.every((u) => !/token/i.test(u.split('?')[1] ?? '')), `${world.urls.length} URLs conferidas`);
+    S.check('Os campos de token das Opções são de senha (não aparecem na tela)',
+      await (async () => {
+        const o = await openPage(`chrome-extension://${extId}/options.html`, 900, 720);
+        const types = await o.eval("['appToken','userToken'].map((id) => document.getElementById(id).type).join()");
+        o.close();
+        return types === 'password,password';
+      })());
   }
 
   // ---- 11. apagar dados locais limpa também as tags

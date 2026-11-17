@@ -113,6 +113,21 @@ async function send(msg) {
   return response;
 }
 
+test('pedidos de outro remetente que não a própria extensão são ignorados', async () => {
+  chrome.runtime.id = 'a-propria-extensao';
+  try {
+    for (const type of ['wipe', 'test', 'open', 'poll-now', 'ticket-details', 'ticket-time', 'demo-notifications', 'play-sound']) {
+      let answered = false;
+      const handled = L.onMessage({ type, id: 1, config: {} }, { id: 'outra-extensao' }, () => { answered = true; });
+      assert.equal(handled, false, `${type}: não pode aceitar o pedido`);
+      assert.equal(answered, false, `${type}: não pode responder`);
+    }
+    assert.equal(L.onMessage({ type: 'poll-now' }, { id: 'a-propria-extensao' }, () => {}), true, 'a própria extensão continua sendo atendida');
+  } finally {
+    delete chrome.runtime.id;
+  }
+});
+
 test('exemplos de notificação: uma de cada tipo, com id "demo:" e o mesmo formato das reais', async () => {
   reset();
   const r = await send({ type: 'demo-notifications', hideContent: false });
@@ -124,7 +139,7 @@ test('exemplos de notificação: uma de cada tipo, com id "demo:" e o mesmo form
   assert.ok(tickets.every((c) => c.opts.title.startsWith('Exemplo · #100')));
   assert.ok(tickets.every((c) => c.opts.buttons.length === 2 && c.opts.priority === 1));
   assert.equal(tickets[0].opts.message, 'Analista A: Segue o log do erro e o print da tela de relatórios.');
-  assert.equal(tickets[0].opts.contextMessage, 'Município Beta');
+  assert.equal(tickets[0].opts.contextMessage, 'Município Alfa');
 
   const summary = calls.create[6];
   assert.equal(summary.opts.title, 'MyTicket');
@@ -316,8 +331,8 @@ test('ticket-details respeita ocultar conteúdo e traduz falhas do GLPI', async 
 // ---------- barra de endereços: "ticket 148270" ----------
 const GLPI = { baseUrl: 'https://glpi.test', appToken: 'a', userToken: 'b' };
 const RADAR = {
-  148270: { id: 148270, title: 'Relatório mensal & agenda <urgente>', entity: 'Município Beta', dateMod: '2026-09-29 10:00:00' },
-  148271: { id: 148271, title: 'Bloqueio de agenda', entity: 'Município Gama�', dateMod: '2026-09-30 09:00:00' },
+  148270: { id: 148270, title: 'Relatório mensal & agenda <urgente>', entity: 'Município Alfa', dateMod: '2026-09-29 10:00:00' },
+  148271: { id: 148271, title: 'Bloqueio de agenda', entity: 'Município Beta', dateMod: '2026-09-30 09:00:00' },
 };
 const suggestFor = async (text) => {
   let got;
@@ -413,7 +428,7 @@ test('omnibox com ocultar conteúdo: as sugestões mostram só o número do tick
 });
 
 // ---------- gráfico de tempo por atribuído (só quando a pessoa clica) ----------
-// GLPI simulado com o log: Analista entra às 10:00 e sai às 11:00; João entra às 11:00 e continua.
+// GLPI simulado com o log: Analista A entra às 10:00 e sai às 11:00; João entra às 11:00 e continua.
 function fakeGlpiLogs({ rights = true } = {}) {
   const paths = [];
   const original = globalThis.fetch;
@@ -477,7 +492,7 @@ test('ticket-time faz exatamente 3 consultas (ticket com log, pessoas e equipes)
     const joao = r.entry.actors.find((a) => a.id === 21);
     assert.equal(joao.name, 'João Reis');
     assert.deepEqual(joao.segs.map((s) => s[2]), [2]); // atribuído agora: o papel vem de Ticket_User
-    assert.deepEqual(r.entry.actors.find((a) => a.id === 20).segs.map((s) => s[2]), [0]); // Analista saiu: papel desconhecido
+    assert.deepEqual(r.entry.actors.find((a) => a.id === 20).segs.map((s) => s[2]), [0]); // Analista A saiu: papel desconhecido
     assert.equal(calls.storageSet.length, 0); // nada vai para o storage
   } finally { glpi.restore(); }
 });
@@ -514,7 +529,7 @@ test('ticket-time: perfil sem o direito “Logs” vira um aviso claro; ocultar 
   try {
     const r = await send({ type: 'ticket-time', id: 159919 });
     assert.equal(r.ok, true);
-    assert.doesNotMatch(JSON.stringify(r), /Analista|João|Analista|Reis/);
+    assert.doesNotMatch(JSON.stringify(r), /Analista A|João|Reis/);
   } finally { glpi.restore(); }
 });
 
