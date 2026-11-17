@@ -25,6 +25,7 @@ import {
   isUnderBase,
   parseGlpiDate,
   parseTicketId,
+  ticketUrl,
   timeAgo,
 } from './src/format.js';
 import {
@@ -482,9 +483,9 @@ const staleChip = (t) => {
   return info ? chip(info.text, info.tone, `Sem movimentação desde ${formatDateTime(t.dateMod)}`) : null;
 };
 
-async function copyRef(t, title) {
+async function copyRef(t) {
   try {
-    await navigator.clipboard.writeText(`#${t.id} – ${title}`);
+    await navigator.clipboard.writeText(ticketUrl(data.cfg.baseUrl, t.id));
     copied = true;
   } catch {
     copied = false;
@@ -524,7 +525,7 @@ function renderDetail() {
     h('div', { class: 'd-title' }, h('span', { class: 'id' }, `#${t.id}`), h('h2', {}, title)),
     h('div', { class: 'd-actions' },
       h('button', { class: 'btn primary big', type: 'button', 'data-focus': 'open', onclick: () => openTicket(t.id) }, 'Abrir no GLPI ↗'),
-      h('button', { class: 'btn', type: 'button', 'data-focus': 'copy', title: `Copia “#${t.id} – ${title}”`, onclick: () => copyRef(t, title) },
+      h('button', { class: 'btn', type: 'button', 'data-focus': 'copy', title: 'Copia o link do ticket', onclick: () => copyRef(t) },
         copied ? 'Copiado ✓' : 'Copiar'),
       tagsButton(t.id),
       pinButton(t, isPinned(data.user, t.id)),
