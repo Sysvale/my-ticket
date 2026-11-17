@@ -10,6 +10,9 @@ export const GECKO = {
   data_collection_permissions: { required: ['none'] },
 };
 
+// O Firefox para Android só entende `data_collection_permissions` a partir da 142 (o web-ext lint avisa se isto faltar).
+export const GECKO_ANDROID = { strict_min_version: '142.0' };
+
 // Permissões que só existem no Chrome/Edge: o Firefox não tem a página offscreen (o som toca no próprio background).
 const CHROME_ONLY_PERMISSIONS = ['offscreen'];
 
@@ -21,6 +24,6 @@ export function toFirefoxManifest(chrome) {
   m.background = { scripts: [worker], ...(chrome.background.type ? { type: chrome.background.type } : {}) };
   m.permissions = (m.permissions ?? []).filter((p) => !CHROME_ONLY_PERMISSIONS.includes(p));
   delete m.minimum_chrome_version;
-  m.browser_specific_settings = { gecko: structuredClone(GECKO) };
+  m.browser_specific_settings = { gecko: structuredClone(GECKO), gecko_android: structuredClone(GECKO_ANDROID) };
   return m;
 }

@@ -254,9 +254,9 @@ Mesmo código; só o manifest muda (gerado por `scripts/firefox-manifest.mjs`: `
 ID `myticket@sysvale.com` e `data_collection_permissions: none`). A conta é gratuita.
 
 1. `npm test && npm run build:firefox:zip` → `dist/my-ticket-firefox-<versão>.zip`.
-2. 👤 Antes de enviar, valide com a ferramenta da Mozilla (baixa pacote da internet, por isso é com você):
-   `npm run build:firefox && npx web-ext lint --source-dir dist/firefox`. Esperado: 0 erros (os avisos que restam são de APIs
-   que o código só usa quando existem). Se acusar algo no `content_security_policy`, me traga a mensagem.
+2. Valide com a ferramenta da Mozilla: `npm run build:firefox && npx web-ext lint --source-dir dist/firefox`.
+   Resultado verificado na 0.1.1: **0 erros e 4 avisos** (`offscreen.createDocument` e
+   `notifications.getPermissionLevel`, APIs que o Firefox não tem e que o código só usa quando existem). O CSP é aceito.
 3. 👤 https://addons.mozilla.org/developers/ → **Enviar um novo add-on** → **Neste site** (listado) → envie o zip.
    - **"Você usa ferramentas de build, minificação ou ofuscação?"** → **Não**. O zip é o código-fonte (não há etapa de build).
 4. Ficha (os textos são os do passo 6):
