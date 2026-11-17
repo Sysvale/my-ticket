@@ -1,6 +1,6 @@
 {
   "name": "my-ticket",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "MyTicket — extensão do Chrome que avisa de novidades nos seus tickets do GLPI.",
@@ -12,6 +12,7 @@
     "icons": "python3 scripts/make-icons.py",
     "sync:win": "bash scripts/sync-windows.sh",
     "build:firefox": "node scripts/build-firefox.mjs",
+    "build:chrome": "node scripts/build-chrome.mjs",
     "e2e": "node scripts/e2e/run.mjs"
   }
 }
