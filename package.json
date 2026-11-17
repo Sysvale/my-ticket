@@ -2,6 +2,7 @@
   "name": "my-ticket",
   "version": "0.1.1",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "description": "MyTicket — extensão do Chrome que avisa de novidades nos seus tickets do GLPI.",
   "scripts": {

@@ -92,7 +92,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-  # O README promete Node 20+ para `npm test`: testar o mínimo é o que torna isso verdade, não só uma afirmação.
+  # A DOCUMENTACAO.md promete Node 20+ para `npm test`: testar o mínimo é o que torna isso verdade, não só uma afirmação.
   # As versões do meio não entram: se passa na mínima e na atual (job acima), não há o que elas acrescentem.
   # Sem coverage (as flags dele pedem Node >= 22.5): coverage e comentário ficam no job acima, no Node 24.
   node-minimo:
