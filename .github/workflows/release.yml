@@ -1,8 +1,11 @@
 name: Release
 
 # Ao criar uma tag vX.Y.Z (ex.: v0.1.2): confere se a tag bate com a versão do manifest, se está na main, roda os testes,
-# gera os pacotes das lojas e os anexa a uma Release do GitHub, com o SHA-256 de cada um. Não envia nada às lojas
-# (isso exige credenciais e entra depois, com aprovação manual).
+# gera os pacotes das lojas e os anexa a uma Release do GitHub, com o SHA-256 de cada um.
+#
+# Depois, o job "chrome-web-store" envia o MESMO zip da Release à Chrome Web Store (só se a variável PUBLICAR_CHROME
+# for 'true'). Ele roda no environment "chrome-web-store", que exige aprovação manual e guarda as credenciais: sem a
+# sua aprovação nada é enviado. Como configurar: guia-publish.md, seção "Entrega contínua".
 #
 # Como lançar: suba a versão em extension/manifest.json e package.json, faça merge na main, e então
 #   git tag v0.1.2 && git push origin v0.1.2
@@ -64,3 +67,41 @@ jobs:
         run: |
           gh release create "$TAG" dist/my-ticket-*.zip dist/SHA256SUMS.txt \
             --verify-tag --generate-notes --title "MyTicket $TAG"
+
+  # Só roda com PUBLICAR_CHROME='true' (Settings → Secrets and variables → Actions → Variables), para a pipeline funcionar
+  # antes das credenciais existirem. O environment pede aprovação e só aceita tags; os segredos são do environment.
+  chrome-web-store:
+    name: Enviar à Chrome Web Store
+    needs: release
+    if: ${{ vars.PUBLICAR_CHROME == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: chrome-web-store
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # O zip enviado é o da Release (o que foi testado), conferido contra o SHA256SUMS.txt gerado no job anterior.
+      - name: Baixar o pacote da Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'my-ticket-[0-9]*.zip' --pattern SHA256SUMS.txt --dir pkg
+          (cd pkg && sha256sum --check --ignore-missing SHA256SUMS.txt)
+
+      # STAGED_PUBLISH: depois de aprovada pela loja, a versão fica pronta e você clica em publicar no Dashboard.
+      - name: Enviar para revisão
+        env:
+          TAG: ${{ github.ref_name }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/chrome-store.mjs pkg/my-ticket-[0-9]*.zip --expect-version "${TAG#v}" --publish-type STAGED_PUBLISH
