@@ -126,6 +126,13 @@ test('manifest: CSP das páginas da extensão fechado (sem unsafe-*, sem origem 
   }
 });
 
+// A pessoa precisa saber qual versão está instalada (ao reportar um problema, ao esperar uma atualização da loja).
+test('as Opções mostram a versão instalada, lida do manifest em tempo de execução (nunca escrita à mão)', () => {
+  assert.match(read('options.html'), /id="version"/);
+  assert.match(read('options.js'), /\$\('version'\)\.textContent\s*=\s*chrome\.runtime\.getManifest\(\)\.version/);
+  assert.doesNotMatch(read('options.html'), /id="version"[^<]*>\s*\d+\.\d+\.\d+/, 'a versão não pode estar fixa no HTML');
+});
+
 test('todo aviso do sistema passa por showNotification: o Firefox só aceita parte das opções (src/compat.js)', () => {
   assert.deepEqual(scan(JS, /notifications\.create\s*\(/, { allow: ['background.js'] }), []);
   const calls = codeLines(read('background.js')).filter(({ line }) => /notifications\.create\s*\(/.test(line));

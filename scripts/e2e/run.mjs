@@ -1365,6 +1365,8 @@ try {
     const options = await openPage(url, 900, 720);
     await options.waitFor(loaded, 'opções preenchidas');
     S.check('Começa desmarcado (como salvo)', (await options.eval("document.getElementById('attn-sticky').checked")) === false);
+    const shownVersion = await options.eval("document.getElementById('version').textContent");
+    S.check('A versão instalada aparece no topo das Opções (a do manifest)', shownVersion === report.version, `mostra “${shownVersion}”, o manifest diz “${report.version}”`);
     await options.click("document.getElementById('attn-sticky')");
     await S.shot(options, 'Marcado, ainda sem salvar', "document.getElementById('attn-sticky')");
     await options.click("document.querySelector('button[type=submit]')");
