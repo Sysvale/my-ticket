@@ -170,7 +170,7 @@ importe e apague a cópia (ele contém tokens).
 
 | Aba | O que tem | Salvar |
 |---|---|---|
-| **Conexão** | URL e tokens do GLPI, o que acompanhar, intervalo e campo do Status extra | barra **Salvar** no pé da janela |
+| **Conexão** | URL e tokens do GLPI, quais tickets monitorar (papéis), intervalo e campo do Status extra | barra **Salvar** no pé da janela |
 | **Avisos** | quando avisar, som, chamar a atenção, ocultar conteúdo | barra **Salvar** no pé da janela |
 | **Aparência** | tema (automático, claro ou escuro), efeito neon e destaque de tickets parados (limites) | na hora (sem barra) |
 | **Tags** | criar, renomear, recolorir, reordenar, apagar, exportar/importar | na hora (sem barra) |
