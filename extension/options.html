@@ -44,11 +44,12 @@
     </section>
 
     <section>
-      <h2>O que acompanhar</h2>
+      <h2>Quais tickets a extensão monitora</h2>
+      <p class="note">É o que a extensão busca no GLPI a cada verificação. Só os tickets buscados aparecem no popup e geram notificação. Escolha em quais papéis você quer ser avisado:</p>
       <label class="check"><input type="checkbox" id="role-assigned"> Tickets em que sou <strong>atribuído</strong></label>
       <label class="check"><input type="checkbox" id="role-observer"> Tickets em que sou <strong>observador</strong></label>
       <label class="check"><input type="checkbox" id="role-requester"> Tickets que <strong>eu abri</strong> (requerente)</label>
-      <p class="note">Você também pode acompanhar qualquer ticket pelo número, no popup. Só tickets em aberto entram por papel.</p>
+      <p class="note">Desmarcar um papel faz a extensão <strong>parar de buscar</strong> esses tickets: eles saem da lista e não notificam mais. Isto <strong>não é um filtro</strong>: para esconder tickets da lista sem deixar de monitorá-los, use o botão <strong>Filtros</strong> no popup. Só tickets em aberto são buscados por papel. Qualquer ticket também pode ser monitorado pelo número, no popup, mesmo sem marcar nada aqui.</p>
     </section>
 
     <section>
