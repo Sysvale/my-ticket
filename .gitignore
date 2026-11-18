@@ -9,3 +9,8 @@ dist/
 CLAUDE.md
 docs/
 store/
+
+# chaves de conta de servico (nunca versionar)
+myticket-ci-*.json
+chave*.json
+*service-account*.json
