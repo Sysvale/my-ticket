@@ -350,6 +350,16 @@ e a cada push no branch do PR. São três jobs, e qualquer falha reprova o PR:
   (`.github/dependabot.yml`) abre uma PR por semana com as atualizações, trocando o SHA e o comentário juntos, e
   o mesmo para o ESLint de `tools/lint/`.
 
+**Release** (`.github/workflows/release.yml`): ao criar uma tag `vX.Y.Z` (só esse formato dispara), o workflow confere que o
+commit da tag está na `main`, que a tag bate com a versão do `extension/manifest.json` e do `package.json`
+(`scripts/release-check.mjs`), roda `npm test`, gera `my-ticket-<versão>.zip` (Chrome e Edge) e
+`my-ticket-firefox-<versão>.zip` (Firefox) e os anexa a uma **Release do GitHub** com o `SHA256SUMS.txt`. Não envia nada às
+lojas e não usa nenhum segredo. O token com permissão de escrita só entra no passo que cria a Release, e só actions
+oficiais (`actions/*`, fixadas pelo SHA) são aceitas (`test/workflows.test.js`).
+
+Para lançar: suba a versão no manifest e no `package.json`, faça merge na `main` e, nela,
+`git tag v0.1.2 && git push origin v0.1.2`.
+
 **Varredura de segredos** (`.github/workflows/seguranca.yml`, job **Segredos (gitleaks)**): em todo PR e em todo push na
 `main`, o gitleaks procura tokens no **histórico inteiro** do git, e não só no que o PR muda, porque um token apagado num
 commit seguinte continua no histórico. Além das regras padrão (chaves de nuvem, tokens do GitHub, chaves privadas), há uma

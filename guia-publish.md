@@ -221,7 +221,11 @@ precisam ficar no ar durante toda a revisão. Opção B: GLPI real em servidor p
 
 - **Publicada (1ª versão, aprovada na revisão):** ID `phbofombfpjafeneiikpjhnhnjedbced`, URL https://chromewebstore.google.com/detail/myticket/phbofombfpjafeneiikpjhnhnjedbced (sem os parâmetros `?authuser`/`hl`: com eles o Brave mostra "Usar no Chrome" em vez de "Usar no Brave"; sem eles, mostra certo. Divulgue sempre a URL limpa). Coloque no README.
 - Instale pela loja e teste uma conexão real antes de divulgar.
-- **Atualizações:** aumente a versão (passo 2) → `npm test && npm run build:chrome` → Dashboard → item →
+- **Gerar os pacotes pelo CI (recomendado):** suba a versão em `extension/manifest.json` e `package.json`, faça merge na
+  `main` e, nela, `git tag vX.Y.Z && git push origin vX.Y.Z`. O workflow `release.yml` testa, gera os zips e os anexa a uma
+  Release do GitHub (com `SHA256SUMS.txt`); baixe de lá o que vai enviar às lojas. Assim o pacote enviado é exatamente o
+  que foi testado, e fica registrado.
+- **Atualizações (à mão):** aumente a versão (passo 2) → `npm test && npm run build:chrome` → Dashboard → item →
   **Pacote** → *Fazer upload de novo pacote* → revisar a ficha se algo mudou → Enviar para revisão. Usuários recebem a
   atualização automaticamente em algumas horas.
 - Se uma versão tiver problema, reenvie a anterior com versão maior, ou despublique em **Status**.
