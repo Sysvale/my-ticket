@@ -224,7 +224,7 @@ precisam ficar no ar durante toda a revisão. Opção B: GLPI real em servidor p
 - **Gerar os pacotes pelo CI (recomendado):** suba a versão em `extension/manifest.json` e `package.json`, faça merge na
   `main` e, nela, `git tag vX.Y.Z && git push origin vX.Y.Z`. O workflow `release.yml` testa, gera os zips e os anexa a uma
   Release do GitHub (com `SHA256SUMS.txt`); baixe de lá o que vai enviar às lojas. Assim o pacote enviado é exatamente o
-  que foi testado, e fica registrado.
+  que foi testado, e fica registrado. Para a pipeline enviar também à loja, veja a seção 12.
 - **Atualizações (à mão):** aumente a versão (passo 2) → `npm test && npm run build:chrome` → Dashboard → item →
   **Pacote** → *Fazer upload de novo pacote* → revisar a ficha se algo mudou → Enviar para revisão. Usuários recebem a
   atualização automaticamente em algumas horas.
@@ -303,6 +303,58 @@ O Edge carrega **o mesmo zip do Chrome** (`npm run build:chrome`), sem nenhuma m
 
 Quem usa Edge (ou Brave, Opera, Vivaldi) também consegue instalar direto da Chrome Web Store; a loja do Edge só
 facilita para quem não sabe disso.
+
+## 12. Entrega contínua: a pipeline envia à Chrome Web Store
+
+Fluxo: você cria a tag `vX.Y.Z` → o CI testa, gera os zips e cria a Release → o job **Enviar à Chrome Web Store** espera a
+**sua aprovação** → baixa o zip da Release, confere o SHA-256 e a versão, envia e submete à revisão → a loja revisa → como o
+envio é `STAGED_PUBLISH`, depois da aprovação a versão fica **pronta e você clica em publicar** no Dashboard (troque para
+`DEFAULT_PUBLISH` no workflow se quiser que publique sozinha). A API **não cria** itens: a primeira versão foi a do passo 5.
+
+### Configurar uma vez (👤 tudo isto é da sua conta)
+
+1. **Google Cloud:** em https://console.cloud.google.com crie um projeto (ex.: `myticket-ci`) e ative a **Chrome Web Store API**
+   (APIs e serviços → Biblioteca → procure pelo nome).
+2. **Conta de serviço:** IAM e administrador → Contas de serviço → **Criar**; não precisa de permissões no projeto. Abra a conta,
+   aba **Chaves → Adicionar chave → JSON**: baixa um arquivo. **Trate-o como senha.** Se a organização bloquear a criação de
+   chaves (política `iam.disableServiceAccountKeyCreation`), peça a um admin ou use um projeto fora da organização.
+3. **Dashboard da loja:** Developer Dashboard → **Conta** (*Account*) → adicione o e-mail da conta de serviço
+   (`nome@projeto.iam.gserviceaccount.com`) para autorizá-la. Só **uma** conta de serviço por publisher. A conta que
+   administra o Dashboard precisa da verificação em duas etapas.
+4. **IDs:** o *Publisher ID* está em Dashboard → **Configurações** → Publisher; o ID da extensão é
+   `phbofombfpjafeneiikpjhnhnjedbced`.
+5. **GitHub, o environment:** Settings → Environments → **New environment** → `chrome-web-store` → marque **Required reviewers**
+   (você) e, em *Deployment branches and tags*, **Selected branches and tags** com a regra de tag `v*`.
+   ⚠️ A organização Sysvale está no plano **Free**: nele, aprovador obrigatório e restrição de tags **só existem em repositório
+   público**. Por isso faça este passo (e o 6 e o 7) **depois de tornar o repositório público**. Sem aprovador, qualquer
+   pessoa com permissão de escrita que criasse uma tag enviaria à loja, então não ligue o envio em repositório privado.
+6. **Segredos do environment** (rode você mesmo; não cole a chave em chat nem em PR):
+   ```bash
+   gh secret set CWS_SERVICE_ACCOUNT_JSON --env chrome-web-store -R Sysvale/my-ticket < chave.json
+   gh secret set CWS_PUBLISHER_ID         --env chrome-web-store -R Sysvale/my-ticket
+   gh secret set CWS_EXTENSION_ID         --env chrome-web-store -R Sysvale/my-ticket --body phbofombfpjafeneiikpjhnhnjedbced
+   shred -u chave.json    # a cópia que importa agora está no GitHub
+   ```
+7. **Ligar o envio:** `gh variable set PUBLICAR_CHROME --body true -R Sysvale/my-ticket`. Enquanto a variável não for `true`, a
+   pipeline só gera a Release e **não toca na loja**.
+
+### Testar antes de valer
+- **Sem rede:** `CWS_PUBLISHER_ID=… CWS_EXTENSION_ID=… CWS_SERVICE_ACCOUNT_JSON="$(cat chave.json)" node scripts/chrome-store.mjs dist/my-ticket-0.1.2.zip --expect-version 0.1.2 --dry-run`
+  confere o zip, a versão e as variáveis, e não envia nada.
+- **De verdade:** crie a tag, aprove o job no GitHub (Actions → a execução → **Review deployments**) e acompanhe o log. O
+  último passo imprime o estado da revisão (`PENDING_REVIEW`).
+
+### Se der erro
+| Sintoma | Causa provável |
+|---|---|
+| `HTTP 403` ao enviar | A conta de serviço não foi adicionada no Dashboard (passo 3), ou a API não foi ativada (passo 1). |
+| "Version must be increased" / upload recusado | A versão do zip já existe na loja: suba a versão e crie outra tag. |
+| `uploadState=FAILED` | O zip foi recusado pela loja; baixe-o da Release e envie à mão para ver o motivo no Dashboard. |
+| Erro ao publicar com item já em revisão | A loja não aceita outra submissão enquanto há uma pendente; espere a revisão ou cancele-a no Dashboard. |
+| `CWS_SERVICE_ACCOUNT_JSON inválido` | O segredo precisa ser o **JSON inteiro** da chave (com `client_email` e `private_key`). |
+| Job não aparece na execução | A variável `PUBLICAR_CHROME` não é `true`. |
+
+Revogar o acesso a qualquer momento: apague a chave no Google Cloud (ou remova a conta de serviço do Dashboard).
 
 ## Checklist final
 

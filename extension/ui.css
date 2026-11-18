@@ -456,6 +456,7 @@ body.options { max-width: 680px; margin: 32px auto; padding: 0 16px 48px; font-s
 .options .brand { margin: 0 0 14px; }
 .options .brand img { display: block; width: 200px; max-width: 100%; height: auto; }
 .options .lead { margin: 0 0 20px; color: var(--muted); }
+.options .version { white-space: nowrap; margin-left: 6px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; opacity: .85; }
 .options section {
   margin-bottom: 16px;
   padding: 16px;

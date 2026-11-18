@@ -360,6 +360,11 @@ oficiais (`actions/*`, fixadas pelo SHA) são aceitas (`test/workflows.test.js`)
 Para lançar: suba a versão no manifest e no `package.json`, faça merge na `main` e, nela,
 `git tag v0.1.2 && git push origin v0.1.2`.
 
+O job **Enviar à Chrome Web Store** (`chrome-web-store`) vem depois da Release e só roda com a variável `PUBLICAR_CHROME=true`.
+Ele fica num *environment* com aprovação obrigatória, baixa o zip da própria Release (conferindo o SHA-256 e a versão da
+tag) e o envia pela API v2 com uma conta de serviço (`scripts/chrome-store.mjs`, sem dependências). Só ele enxerga os
+segredos `CWS_*`, e o token de acesso é mascarado nos logs. Configuração e erros comuns: `guia-publish.md`, seção 12.
+
 **Varredura de segredos** (`.github/workflows/seguranca.yml`, job **Segredos (gitleaks)**): em todo PR e em todo push na
 `main`, o gitleaks procura tokens no **histórico inteiro** do git, e não só no que o PR muda, porque um token apagado num
 commit seguinte continua no histórico. Além das regras padrão (chaves de nuvem, tokens do GitHub, chaves privadas), há uma

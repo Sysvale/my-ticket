@@ -7,6 +7,9 @@ import { selectTab } from './options-tabs.js';
 
 const $ = (id) => document.getElementById(id);
 
+// A versão que está instalada: a do manifest, lida em tempo de execução (nunca escrita à mão).
+$('version').textContent = chrome.runtime.getManifest().version;
+
 const ROLES = ['assigned', 'observer', 'requester'];
 const NOTIFY = ['followup', 'solution', 'status', 'extra', 'new'];
 
