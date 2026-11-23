@@ -7,6 +7,9 @@ name: Release
 # for 'true'). Ele roda no environment "chrome-web-store", que exige aprovação manual e guarda as credenciais: sem a
 # sua aprovação nada é enviado. Como configurar: guia-publish.md, seção "Entrega contínua".
 #
+# O job "firefox-amo" faz o mesmo com o zip do Firefox e o addons.mozilla.org (só se PUBLICAR_FIREFOX for 'true',
+# environment "firefox-amo"). Como configurar: guia-publish.md, seção "Entrega contínua".
+#
 # Como lançar: suba a versão em extension/manifest.json e package.json, faça merge na main, e então
 #   git tag v0.1.2 && git push origin v0.1.2
 on:
@@ -34,9 +37,10 @@ jobs:
           persist-credentials: false
 
       # Só se lança o que já foi revisado e mesclado: uma tag num commit fora da main não vira Release.
+      # TEMPORÁRIO (teste do job firefox-amo): também aceita a branch feat/publicar-firefox-no-ci. Remover depois do teste.
       - name: A tag está na main
         run: |
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || git merge-base --is-ancestor "$GITHUB_SHA" origin/feat/publicar-firefox-no-ci || {
             echo "ERRO: o commit da tag não está na main. Faça merge na main e crie a tag lá." >&2
             exit 1
           }
@@ -105,3 +109,39 @@ jobs:
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
           CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
         run: node scripts/chrome-store.mjs pkg/my-ticket-[0-9]*.zip --expect-version "${TAG#v}" --publish-type STAGED_PUBLISH
+
+  # Só roda com PUBLICAR_FIREFOX='true'. Mesmo desenho do job da Chrome Web Store: o zip é o da Release, conferido pelo
+  # SHA-256; o environment pede aprovação e guarda as credenciais da AMO. Depois de enviada, a versão passa pela revisão
+  # da Mozilla e é publicada sozinha ao ser aprovada (o Firefox dos usuários atualiza pela AMO).
+  firefox-amo:
+    name: Enviar ao addons.mozilla.org
+    needs: release
+    if: ${{ vars.PUBLICAR_FIREFOX == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: firefox-amo
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Baixar o pacote da Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'my-ticket-firefox-*.zip' --pattern SHA256SUMS.txt --dir pkg
+          (cd pkg && sha256sum --check --ignore-missing SHA256SUMS.txt)
+
+      - name: Enviar para revisão
+        env:
+          TAG: ${{ github.ref_name }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: node scripts/firefox-store.mjs pkg/my-ticket-firefox-*.zip --expect-version "${TAG#v}"

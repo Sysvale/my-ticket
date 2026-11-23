@@ -338,6 +338,25 @@ envio é `STAGED_PUBLISH`, depois da aprovação a versão fica **pronta e você
 7. **Ligar o envio:** `gh variable set PUBLICAR_CHROME --body true -R Sysvale/my-ticket`. Enquanto a variável não for `true`, a
    pipeline só gera a Release e **não toca na loja**.
 
+### Firefox (addons.mozilla.org): mesmo fluxo, job `firefox-amo`
+
+Depois do job da Release, o job **Enviar ao addons.mozilla.org** baixa `my-ticket-firefox-<versão>.zip`, confere o SHA-256 e a
+versão e cria a versão no add-on pela API v5 da AMO (`scripts/firefox-store.mjs`). Ela passa pela revisão da Mozilla e é
+publicada sozinha ao ser aprovada; o Firefox dos usuários atualiza pela AMO. A API só **adiciona versões**: a primeira é a do
+passo 10.
+
+1. 👤 https://addons.mozilla.org/developers/addon/api/key/ → **Gerar novas credenciais**: copie o *JWT issuer* (`user:…:…`) e o
+   *JWT secret*. **Trate o secret como senha.**
+2. **GitHub, o environment:** Settings → Environments → **New environment** → `firefox-amo` → **Required reviewers** (você) e
+   tags `v*`. As mesmas restrições do plano Free do passo 5 valem aqui (só em repositório público).
+3. **Segredos do environment** (rode você mesmo; não cole em chat nem em PR):
+   ```bash
+   gh secret set AMO_JWT_ISSUER --env firefox-amo -R Sysvale/my-ticket
+   gh secret set AMO_JWT_SECRET --env firefox-amo -R Sysvale/my-ticket
+   ```
+4. **Ligar o envio:** `gh variable set PUBLICAR_FIREFOX --body true -R Sysvale/my-ticket`.
+5. Sem rede: `AMO_JWT_ISSUER=… AMO_JWT_SECRET=… node scripts/firefox-store.mjs dist/my-ticket-firefox-0.1.3.zip --expect-version 0.1.3 --dry-run`.
+
 ### Testar antes de valer
 - **Sem rede:** `CWS_PUBLISHER_ID=… CWS_EXTENSION_ID=… CWS_SERVICE_ACCOUNT_JSON="$(cat chave.json)" node scripts/chrome-store.mjs dist/my-ticket-0.1.2.zip --expect-version 0.1.2 --dry-run`
   confere o zip, a versão e as variáveis, e não envia nada.
