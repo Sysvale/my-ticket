@@ -354,7 +354,9 @@ passo 10.
    gh secret set AMO_JWT_ISSUER --env firefox-amo -R Sysvale/my-ticket
    gh secret set AMO_JWT_SECRET --env firefox-amo -R Sysvale/my-ticket
    ```
-4. **Ligar o envio:** `gh variable set PUBLICAR_FIREFOX --body true -R Sysvale/my-ticket`.
+4. **Ligar o envio:** `gh variable set PUBLICAR_FIREFOX --body true -R Sysvale/my-ticket`. ⚠️ Ela é uma variável do **repositório**
+   (como a `PUBLICAR_CHROME`), **não** do environment: o `if:` do job é avaliado antes de ele entrar no environment, então
+   uma variável criada lá não é vista e o job aparece como *skipped*. Já os **segredos** `AMO_*` ficam no **environment**.
 5. Sem rede: `AMO_JWT_ISSUER=… AMO_JWT_SECRET=… node scripts/firefox-store.mjs dist/my-ticket-firefox-0.1.3.zip --expect-version 0.1.3 --dry-run`.
 
 ### Testar antes de valer
