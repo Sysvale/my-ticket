@@ -25,8 +25,10 @@ test('toda action é oficial (actions/*) e está fixada pelo SHA de 40 caractere
 
 const split = (yml) => {
   const i = yml.indexOf('\n  chrome-web-store:');
+  const j = yml.indexOf('\n  firefox-amo:');
   assert.ok(i > -1, 'job chrome-web-store ausente');
-  return { release: yml.slice(0, i), chrome: yml.slice(i) };
+  assert.ok(j > i, 'job firefox-amo ausente (ou antes do chrome-web-store)');
+  return { release: yml.slice(0, i), chrome: yml.slice(i, j), firefox: yml.slice(j) };
 };
 
 test('release: só dispara por tag vX.Y.Z, não usa pull_request_target e só escreve no job que cria a Release', () => {
@@ -68,4 +70,25 @@ test('chrome-web-store: envia o zip DA RELEASE, conferido pelo SHA-256, e exige 
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'ordem dos passos');
   assert.match(chrome, /--expect-version "\$\{TAG#v\}"/);
   assert.doesNotMatch(chrome, /npm run build|upload-artifact/, 'não gera outro pacote: usa o da Release');
+});
+
+test('firefox-amo: só depois da Release, atrás de um interruptor e de um environment com aprovação, com segredos AMO_* apenas', () => {
+  const { firefox } = split(read('release.yml'));
+  assert.match(firefox, /needs: release/);
+  assert.match(firefox, /if: \$\{\{ vars\.PUBLICAR_FIREFOX == 'true' \}\}/, 'sem o interruptor a pipeline não envia nada');
+  assert.match(firefox, /environment: firefox-amo/, 'os segredos e a aprovação moram no environment');
+  assert.doesNotMatch(firefox, /contents: write/, 'o job que fala com a AMO nunca escreve no repositório');
+  const used = [...firefox.matchAll(/secrets\.(\w+)/g)].map((m) => m[1]).sort();
+  assert.deepEqual(used, ['AMO_JWT_ISSUER', 'AMO_JWT_SECRET']);
+  assert.doesNotMatch(firefox, /secrets\.GITHUB_TOKEN|secrets: inherit/);
+});
+
+test('firefox-amo: envia o zip DO FIREFOX da Release, conferido pelo SHA-256, e exige que a versão do zip seja a da tag', () => {
+  const { firefox } = split(read('release.yml'));
+  const order = ['gh release download', 'sha256sum --check', 'firefox-store.mjs'].map((s) => firefox.indexOf(s));
+  assert.ok(order.every((i) => i > -1), `faltou algum passo: ${order.join()}`);
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'ordem dos passos');
+  assert.match(firefox, /my-ticket-firefox-\*\.zip/);
+  assert.match(firefox, /--expect-version "\$\{TAG#v\}"/);
+  assert.doesNotMatch(firefox, /npm run build|upload-artifact/, 'não gera outro pacote: usa o da Release');
 });

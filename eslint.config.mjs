@@ -19,7 +19,7 @@ const EXTENSION = readonly([
 const NODE = readonly([
   'chrome', 'process', 'Buffer', 'console', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'setImmediate',
   'fetch', 'URL', 'URLSearchParams', 'AbortController', 'TextEncoder', 'TextDecoder', 'crypto', 'structuredClone', 'WebSocket',
-  'performance', 'navigator',
+  'performance', 'navigator', 'FormData', 'Blob',
 ]);
 
 export default [
