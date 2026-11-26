@@ -28,10 +28,11 @@ test('Firefox: tem o ID do add-on (obrigatório no MV3) e declara que não colet
   assert.deepEqual(GECKO.data_collection_permissions, { required: ['none'] }, 'mudar isso tem de ser uma decisão, não um acidente');
 });
 
-test('Firefox: mesmas permissões do Chrome, menos o offscreen (que o Firefox não tem), e host só opcional', () => {
+test('Firefox: mesmas permissões do Chrome, menos offscreen e sidePanel (que o Firefox não tem), e host só opcional', () => {
   const ff = toFirefoxManifest(chrome);
-  assert.deepEqual(ff.permissions, chrome.permissions.filter((p) => p !== 'offscreen'));
-  assert.ok(!ff.permissions.includes('offscreen'));
+  assert.deepEqual(ff.permissions, chrome.permissions.filter((p) => p !== 'offscreen' && p !== 'sidePanel'));
+  assert.ok(!ff.permissions.includes('offscreen') && !ff.permissions.includes('sidePanel'));
+  assert.equal(ff.side_panel, undefined);
   assert.deepEqual(ff.optional_host_permissions, ['https://*/*']);
   assert.equal(ff.host_permissions, undefined);
 });

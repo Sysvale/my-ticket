@@ -729,3 +729,26 @@ test('"Apagar dados locais" limpa o storage local inteiro (é ele que guarda as 
   assert.deepEqual(r, { ok: true });
   assert.equal(calls.cleared, 1);
 });
+
+test('painel lateral: a escolha "panel" desliga o popup e faz o ícone abrir o painel; "popup" desfaz', async () => {
+  reset();
+  const popups = [];
+  const behaviors = [];
+  chrome.action.setPopup = async (o) => { popups.push(o.popup); };
+  chrome.sidePanel = { setPanelBehavior: async (o) => { behaviors.push(o.openPanelOnActionClick); } };
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  try {
+    stored.surface = 'panel';
+    L.onChanged({ surface: { newValue: 'panel' } }, 'local');
+    await settle();
+    stored.surface = 'popup';
+    L.onChanged({ surface: { oldValue: 'panel', newValue: 'popup' } }, 'local');
+    await settle();
+    assert.deepEqual(popups, ['', 'popup.html']);
+    assert.deepEqual(behaviors, [true, false]);
+  } finally {
+    delete chrome.sidePanel;
+    delete chrome.action.setPopup;
+    delete stored.surface;
+  }
+});

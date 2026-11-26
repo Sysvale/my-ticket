@@ -89,7 +89,7 @@ test('CSS sem recurso remoto (@import ou url() para fora)', () => {
 test('manifest: só as permissões que o produto usa, host só opcional e https, sem superfícies extras', () => {
   const manifest = JSON.parse(read('manifest.json'));
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'notifications', 'offscreen', 'storage']);
+  assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'notifications', 'offscreen', 'sidePanel', 'storage']);
   assert.equal(manifest.host_permissions, undefined, 'host_permissions dá acesso sem perguntar: só optional_host_permissions');
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
   // O que o Chrome carrega não leva nada do Firefox: 'background.scripts' faz o Chrome avisar "requires manifest version
