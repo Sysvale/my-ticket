@@ -53,6 +53,30 @@ const modMs = (t) => parseGlpiDate(t.dateMod) || 0;
 const openTicket = (id) => chrome.runtime.sendMessage({ type: 'open', id });
 const openOptions = () => chrome.runtime.openOptionsPage();
 
+// A mesma página serve ao popup e ao painel lateral (side_panel.default_path traz "?panel"). Só o Chrome/Edge têm o painel.
+const inPanel = location.search === '?panel';
+if (inPanel) document.body.classList.add('panel');
+
+// Popup → painel: abre o painel na janela atual e lembra a escolha (o ícone passa a abri-lo). O open() tem de vir
+// logo do clique. Painel → popup: lembra a escolha, abre o popup e fecha o painel; o ícone volta a abrir o popup.
+const surfaceBtn = $('#surface');
+if (chrome.sidePanel) {
+  const label = inPanel ? 'Voltar ao popup' : 'Abrir no painel lateral';
+  surfaceBtn.title = label;
+  surfaceBtn.setAttribute('aria-label', label);
+  surfaceBtn.hidden = false;
+  surfaceBtn.addEventListener('click', async () => {
+    if (!inPanel) await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
+    await chrome.storage.local.set({ surface: inPanel ? 'popup' : 'panel' });
+    if (inPanel) {
+      // O background só religa o popup depois do onChanged: faz aqui mesmo, senão o openPopup() abriria nada.
+      await chrome.action.setPopup({ popup: 'popup.html' });
+      await chrome.action.openPopup?.().catch(() => {}); // Chrome 127+; antes disso o popup só abre no próximo clique
+    }
+    window.close();
+  });
+}
+
 // ---------- estado da tela ----------
 let data = null; // { cfg, state, user, tags } do storage
 let ui = null; // { filters, panelOpen }: fonte da verdade enquanto o popup está aberto

@@ -67,6 +67,9 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
 - **Guia de notificações** (Opções → “Guia de notificações”): como são os avisos, o que precisa estar ligado
   (com verificação ao vivo) e o que fazer quando não aparecem.
 - Ignora as suas próprias respostas (configurável).
+- **Painel lateral (Chrome/Edge):** o botão de painel no alto do popup abre a mesma interface no painel lateral do navegador, fixo
+  à direita e aberto ao trocar de aba. A escolha fica salva: o ícone da extensão passa a abrir o painel (`setPanelBehavior`) e o
+  botão do painel volta ao popup. O layout se adapta à largura do painel. Não existe no Firefox (o botão não aparece).
 - **Pausar a sincronização:** o botão de pausa no alto do popup (ao lado de “Atualizar agora”) para de buscar no GLPI e de
   avisar, sem apagar nada. Enquanto pausado, o alarme é cancelado, nem o “Atualizar agora” busca, o ícone mostra “II” e o
   popup exibe um aviso com **Retomar**. Ao retomar, a extensão busca na hora e avisa o que aconteceu nesse meio-tempo (mais
@@ -102,7 +105,7 @@ Somente leitura: a extensão nunca cria nem altera nada no GLPI.
 **Chrome e Edge** carregam `extension/` como está (o Edge é Chromium: `edge://extensions`, mesmo passo a passo).
 
 **Firefox (versão 140 ou mais nova)** carrega uma cópia gerada, porque o manifest dele é diferente: o Firefox não tem service
-worker nem a página *offscreen*, e as chaves próprias dele fazem o Chrome avisar “`background.scripts` requires manifest
+worker, a página *offscreen* nem o painel lateral do Chrome, e as chaves próprias dele fazem o Chrome avisar “`background.scripts` requires manifest
 version of 2 or lower”. Por isso o manifest do Firefox é **gerado** a partir do de `extension/` e `extension/` não leva nada dele.
 
 ```bash
@@ -116,7 +119,7 @@ gerada. Abra as Opções e salve a conexão: o Firefox pede a permissão de aces
 `about:addons` → MyTicket → **Permissões**. Rode `build:firefox` de novo a cada mudança no código e recarregue o add-on.
 
 - O que o gerador muda (`scripts/firefox-manifest.mjs`): `background.scripts` no lugar de `service_worker`, sem a permissão
-  `offscreen` e sem `minimum_chrome_version`, e com `browser_specific_settings.gecko` (ID `myticket@sysvale.com`, obrigatório
+  `offscreen` e `sidePanel`, sem `side_panel` e sem `minimum_chrome_version`, e com `browser_specific_settings.gecko` (ID `myticket@sysvale.com`, obrigatório
   no MV3 para assinar). Ele recusa apagar uma pasta que não seja uma saída anterior.
 - Uma extensão temporária **some quando o Firefox fecha**. Para ficar instalada é preciso assiná-la ou usar o Firefox
   Developer Edition, Nightly ou ESR com `xpinstall.signatures.required` desligado em `about:config`. O Firefox comum recusa
@@ -261,7 +264,7 @@ e guarde o arquivo; **Importar** devolve as tags (substituindo as atuais).
 
 ```
 extension/
-  manifest.json      MV3; permissões: alarms, notifications, offscreen, storage (+ host opcional)
+  manifest.json      MV3; permissões: alarms, notifications, offscreen, sidePanel, storage (+ host opcional)
   background.js      service worker (Chrome/Edge) ou página de eventos (Firefox): alarme, polling, notificações, badge
   popup.*            painel de tickets
   options.*          credenciais e preferências

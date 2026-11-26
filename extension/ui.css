@@ -167,6 +167,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, .card:focus-vis
 
 /* ---------- popup ---------- */
 body.popup { width: 420px; max-height: 600px; display: flex; flex-direction: column; }
+/* Painel lateral: a largura é a do painel (o usuário arrasta a borda) e a altura, a da janela */
+body.popup.panel { width: auto; min-width: 280px; max-height: none; height: 100vh; }
 .popup header {
   flex: none;
   position: sticky;
@@ -373,6 +375,13 @@ body.popup { width: 420px; max-height: 600px; display: flex; flex-direction: col
   background: var(--surface);
 }
 .filters-panel label { display: block; }
+
+/* Painéis estreitos: os filtros empilham e o botão "Acompanhar" cai para baixo do campo */
+@media (max-width: 360px) {
+  .popup form.add, .filters-row { flex-wrap: wrap; }
+  .filters-panel { grid-template-columns: 1fr; }
+}
+
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .filters-panel select {
   width: 100%;

@@ -347,8 +347,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) poll();
 });
 
+// Onde o ícone abre a interface: 'popup' (padrão) ou 'panel' (painel lateral). O painel só existe no Chrome/Edge.
+// Com o painel escolhido o popup é desligado (setPopup ''), senão ele teria prioridade sobre o clique no ícone.
+async function applySurface() {
+  if (!chrome.sidePanel) return;
+  const { surface } = await chrome.storage.local.get('surface');
+  const panel = surface === 'panel';
+  await chrome.action.setPopup({ popup: panel ? '' : 'popup.html' });
+  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: panel });
+}
+
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
+  if (changes.surface) applySurface().catch(() => {});
   if (changes.config) {
     const oldC = changes.config.oldValue ?? {};
     const newC = changes.config.newValue ?? {};
@@ -461,3 +472,4 @@ chrome.runtime.onStartup.addListener(() => {
 
 ensureAlarm();
 updateBadge();
+applySurface().catch(() => {});
